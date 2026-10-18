@@ -49,7 +49,7 @@ Then open `https://your-domain.com`, register, and connect Substack as described
 
 The web interface is where each user manages their own account. Everything is per user; other users' data is never visible.
 
-- **Register / log in:** Create an account with a username and password. If the server sets an `INVITE_CODE`, you need it to register; if `REGISTRATION_OPEN=0`, registration is closed.
+- **Register / log in:** Create an account with an email address and password. If the server sets an `INVITE_CODE`, you need it to register; if `REGISTRATION_OPEN=0`, registration is closed.
 - **Substack connection:** Shows whether a `substack.sid` cookie is stored. It is filled automatically by the browser extension or can be pasted manually. You can delete the stored cookie at any time.
 - **Connection details:** Your personal OPDS address (`/o/<token>/`) for the reader and the sync token for the extension. Both can be rotated; the old values stop working immediately, so update the reader and extension afterwards.
 - **Catalogs:** The four defaults are Latest, For you, Saved and Paid. For each catalog you can:

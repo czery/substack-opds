@@ -94,7 +94,7 @@ def main():
     assert c.post("/register", data={"email": "a@b.de", "password": "kurz"}).status_code == 200
     r = c.post("/register", data={"email": "a@b.de", "password": "langespasswort1"})
     opds = re.search(r"/o/([\w-]+)/", r.text).group(1)
-    sync = re.search(r"Sync-Token <code>([\w-]+)</code>", r.text).group(1)
+    sync = re.search(r"sync token <code>([\w-]+)</code>", r.text).group(1)
     print("registriert, Tokens ok")
 
     assert c.post("/api/cookie", json={"cookie": "x" * 40}, headers={"Authorization": "Bearer falsch"}).status_code == 401
@@ -110,7 +110,7 @@ def main():
     paid = c.get(f"/o/{opds}/feed/paid").text
     assert "42-ueber-aerger-oel.epub" in paid and "🔒" in paid, paid
     saved = c.get(f"/o/{opds}/feed/saved").text
-    assert "<entry>" in saved and "Keine Artikel" in saved, saved  # leerer Feed -> Hinweis
+    assert "<entry>" in saved and "No articles" in saved, saved  # leerer Feed -> Hinweis
     foryou = c.get(f"/o/{opds}/feed/for-you").text
     assert foryou.count("urn:substack:") == 2, foryou  # Kommentare raus, geblättert, dedupliziert
     assert "42-ueber" in foryou and "43-zweite-seite" in foryou, foryou
@@ -133,7 +133,7 @@ def main():
 
     n_entries = lambda t: t.count("urn:substack:")
     r = c.post("/feeds", data=form(limits={"for-you": 1}, new=("Meine Liste", "https://substack.com/api/v1/reader/posts?inboxType=paid&limit=20", "5")))
-    assert "Kataloge gespeichert" in r.text, r.text[:800]
+    assert "Catalogs saved" in r.text, r.text[:800]
     assert n_entries(c.get(f"/o/{opds}/feed/for-you").text) == 1  # Anzahl wirkt (Seite 2 wird nicht geholt)
     root = c.get(f"/o/{opds}/").text
     assert root.count("<entry>") == 5 and "Meine Liste" in root, root
@@ -142,9 +142,9 @@ def main():
     print("Kataloge konfigurierbar: Anzahl, neuer Katalog ok")
 
     r = c.post("/feeds", data=form(new=("Böse", "https://evil.example/api/v1/x", "5")))
-    assert "Neuer Katalog nicht angelegt" in r.text
+    assert "New catalog not created" in r.text
     r = c.post("/feeds", data=form(new=("Böse", "/etc/passwd", "5")))
-    assert "Neuer Katalog nicht angelegt" in r.text
+    assert "New catalog not created" in r.text
     print("Fremde Hosts und ungültige Pfade abgelehnt")
 
     r = c.post("/feeds", data=form(enabled=["latest", "for-you", "paid"]))

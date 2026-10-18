@@ -56,7 +56,7 @@ def throttle(request: Request, limit: int = 10, window: int = 600):
     t = time.time()
     hits = [x for x in _attempts.get(ip, []) if t - x < window]
     if len(hits) >= limit:
-        raise HTTPException(429, "Zu viele Versuche, bitte später erneut probieren.")
+        raise HTTPException(429, "Too many attempts, please try again later.")
     hits.append(t)
     _attempts[ip] = hits
 
@@ -136,7 +136,7 @@ code{background:var(--bg);padding:2px 6px;border-radius:4px;word-break:break-all
 def page(title: str, body: str, flash: str = "") -> HTMLResponse:
     f = f'<div class="flash">{esc(flash)}</div>' if flash else ""
     return HTMLResponse(
-        f"<!doctype html><html lang='de'><head><meta charset='utf-8'>"
+        f"<!doctype html><html lang='en'><head><meta charset='utf-8'>"
         f"<meta name='viewport' content='width=device-width,initial-scale=1'>"
         f"<title>{esc(title)}</title><style>{CSS}</style></head><body><main>{f}{body}</main></body></html>"
     )
@@ -158,39 +158,39 @@ async def index(request: Request):
     if not u:
         reg = ""
         if REGISTRATION_OPEN:
-            inv = "<label>Einladungscode<input name='invite' required></label>" if INVITE_CODE else ""
-            reg = f"""<div class=card><h2>Registrieren</h2>
-<form method=post action=/register><label>E-Mail<input name=email type=email required></label>
-<label>Passwort (min. 10 Zeichen)<input name=password type=password minlength=10 required></label>{inv}
-<button>Konto anlegen</button></form></div>"""
-        return page("Substack → E-Reader", f"""<h1>Substack → E-Reader</h1>
-<p class=mut>Deine Substack-Artikel als OPDS-Katalog für CrossPoint und andere E-Ink-Reader.</p>
-<div class=card><h2>Anmelden</h2><form method=post action=/login>
-<label>E-Mail<input name=email type=email required></label>
-<label>Passwort<input name=password type=password required></label><button>Anmelden</button></form></div>{reg}""", msg)
+            inv = "<label>Invite code<input name='invite' required></label>" if INVITE_CODE else ""
+            reg = f"""<div class=card><h2>Sign up</h2>
+<form method=post action=/register><label>Email<input name=email type=email required></label>
+<label>Password (min. 10 characters)<input name=password type=password minlength=10 required></label>{inv}
+<button>Create account</button></form></div>"""
+        return page("Substack → E-reader", f"""<h1>Substack → E-reader</h1>
+<p class=mut>Your Substack articles as an OPDS catalog for CrossPoint and other e-ink readers.</p>
+<div class=card><h2>Log in</h2><form method=post action=/login>
+<label>Email<input name=email type=email required></label>
+<label>Password<input name=password type=password required></label><button>Log in</button></form></div>{reg}""", msg)
 
     b = base(request)
     connected = (
-        f"verbunden (zuletzt aktualisiert {datetime.fromtimestamp(u['cookie_at']).strftime('%d.%m.%Y %H:%M')})"
-        if u["cookie_enc"] else "noch nicht verbunden"
+        f"connected (last updated {datetime.fromtimestamp(u['cookie_at']).strftime('%Y-%m-%d %H:%M')})"
+        if u["cookie_enc"] else "not connected yet"
     )
-    return page("Dashboard", f"""<h1>Dein Konto</h1><p class=mut>{esc(u['email'])}</p>
-<div class=card><h2>OPDS-Adresse für den Reader</h2>
+    return page("Dashboard", f"""<h1>Your account</h1><p class=mut>{esc(u['email'])}</p>
+<div class=card><h2>OPDS address for your reader</h2>
 <p><code>{esc(b)}/o/{esc(u['opds_token'])}/</code></p>
-<p class=mut>Diese Adresse ist geheim und enthält deinen Zugang. Im Reader als OPDS-Server hinzufügen.</p></div>
-<div class=card><h2>Substack-Zugang: {esc(connected)}</h2>
-<p class=mut>Am einfachsten über die Browser-Extension (synct das Cookie automatisch).
-Alternativ den Wert von <code>substack.sid</code> hier einfügen (DevTools → Application → Cookies → substack.com).</p>
-<form method=post action=/cookie><textarea name=cookie rows=3 placeholder="substack.sid-Wert" required></textarea>
-<button>Cookie speichern</button></form>
-<p class=mut>Für die Extension: Server <code>{esc(b)}</code> und Sync-Token <code>{esc(u['sync_token'])}</code></p></div>
+<p class=mut>This address is secret and grants access to your account. Add it to your reader as an OPDS server.</p></div>
+<div class=card><h2>Substack connection: {esc(connected)}</h2>
+<p class=mut>The easiest way is the browser extension (it syncs the cookie automatically).
+Alternatively, paste the value of <code>substack.sid</code> here (DevTools → Application → Cookies → substack.com).</p>
+<form method=post action=/cookie><textarea name=cookie rows=3 placeholder="substack.sid value" required></textarea>
+<button>Save cookie</button></form>
+<p class=mut>For the extension: server <code>{esc(b)}</code> and sync token <code>{esc(u['sync_token'])}</code></p></div>
 {feeds_card(u)}
-<div class=card><h2>Konto</h2>
-<form method=post action=/cookie/delete style=display:inline><button class=sec>Substack trennen</button></form>
-<form method=post action=/token/rotate style=display:inline><button class=sec>Adressen erneuern</button></form>
-<form method=post action=/logout style=display:inline><button class=sec>Abmelden</button></form>
-<form method=post action=/account/delete onsubmit="return confirm('Konto und gespeicherte Daten endgültig löschen?')" style="margin-top:12px">
-<button class=danger>Konto löschen</button></form></div>""", msg)
+<div class=card><h2>Account</h2>
+<form method=post action=/cookie/delete style=display:inline><button class=sec>Disconnect Substack</button></form>
+<form method=post action=/token/rotate style=display:inline><button class=sec>Regenerate addresses</button></form>
+<form method=post action=/logout style=display:inline><button class=sec>Log out</button></form>
+<form method=post action=/account/delete onsubmit="return confirm('Permanently delete your account and stored data?')" style="margin-top:12px">
+<button class=danger>Delete account</button></form></div>""", msg)
 
 
 def feeds_card(u) -> str:
@@ -200,25 +200,25 @@ def feeds_card(u) -> str:
         rows += (
             f'<div class=feedrow>'
             f'<label>Name<input name="name_{k}" value="{esc(f["name"])}" maxlength=40 required></label>'
-            f'<label>Substack-Pfad oder -URL<input name="path_{k}" value="{esc(f["path"])}" required></label>'
-            f'<label>Anzahl Artikel (1–{substack.MAX_LIMIT})'
+            f'<label>Substack path or URL<input name="path_{k}" value="{esc(f["path"])}" required></label>'
+            f'<label>Number of articles (1–{substack.MAX_LIMIT})'
             f'<input name="limit_{k}" type=number min=1 max={substack.MAX_LIMIT} value="{f["limit"]}"></label>'
-            f'<label class=chk><input type=checkbox name=enabled value="{k}"{" checked" if f["enabled"] else ""}>aktiv</label>'
-            f'<label class=chk><input type=checkbox name=delete value="{k}">löschen</label></div>'
+            f'<label class=chk><input type=checkbox name=enabled value="{k}"{" checked" if f["enabled"] else ""}>enabled</label>'
+            f'<label class=chk><input type=checkbox name=delete value="{k}">delete</label></div>'
         )
-    return f"""<div class=card><h2>Kataloge im Reader</h2>
-<p class=mut>Jeder Katalog ruft einen Substack-Pfad ab. Neue Pfade findest du in Chrome auf substack.com:
-DevTools → Netzwerk → nach <code>api/v1</code> filtern, dann in Substack den gewünschten Tab öffnen und die Anfrage kopieren.
-Erlaubt sind nur <code>/api/…</code>-Pfade oder <code>https://substack.com/api/…</code>-URLs. Das Antwortformat wird automatisch erkannt.</p>
-<p class=mut>Substack liefert höchstens 20 Artikel pro Abruf. Der Server blättert automatisch weiter, bis die Anzahl erreicht ist
-(maximal {substack.MAX_PAGES} Abrufe oder {int(substack.TIME_BUDGET)} Sekunden). Gemischte Feeds wie „Für dich“ brauchen deshalb länger.</p>
+    return f"""<div class=card><h2>Catalogs in your reader</h2>
+<p class=mut>Each catalog fetches one Substack path. To find new paths, open substack.com in Chrome:
+DevTools → Network → filter for <code>api/v1</code>, then open the tab you want in Substack and copy the request.
+Only <code>/api/…</code> paths or <code>https://substack.com/api/…</code> URLs are allowed. The response format is detected automatically.</p>
+<p class=mut>Substack returns at most 20 articles per request. The server keeps paging until the number is reached
+(at most {substack.MAX_PAGES} requests or {int(substack.TIME_BUDGET)} seconds). Mixed feeds like “For you” therefore take longer.</p>
 <form method=post action=/feeds>{rows}
-<div class=feedrow><strong>Neuer Katalog</strong>
+<div class=feedrow><strong>New catalog</strong>
 <label>Name<input name=new_name maxlength=40></label>
-<label>Substack-Pfad oder -URL<input name=new_path placeholder="/api/v1/…"></label>
-<label>Anzahl Artikel<input name=new_limit type=number min=1 max={substack.MAX_LIMIT} value="{substack.DEFAULT_LIMIT}"></label></div>
-<button>Kataloge speichern</button></form>
-<form method=post action=/feeds/reset style=margin-top:10px><button class=sec>Auf Standard zurücksetzen</button></form></div>"""
+<label>Substack path or URL<input name=new_path placeholder="/api/v1/…"></label>
+<label>Number of articles<input name=new_limit type=number min=1 max={substack.MAX_LIMIT} value="{substack.DEFAULT_LIMIT}"></label></div>
+<button>Save catalogs</button></form>
+<form method=post action=/feeds/reset style=margin-top:10px><button class=sec>Reset to defaults</button></form></div>"""
 
 
 @app.post("/feeds")
@@ -237,7 +237,7 @@ async def save_feeds(request: Request):
         name = (form.get(f"name_{k}") or "").strip()[:40]
         path = substack.parse_feed_path(form.get(f"path_{k}") or "")
         if not name or not path:
-            errors.append(f"„{name or f['name']}“ unverändert (Name fehlt oder Pfad ungültig)")
+            errors.append(f"“{name or f['name']}” unchanged (name missing or path invalid)")
             out.append({**f, "enabled": k in enabled})
             continue
         out.append({"key": k, "name": name, "path": path,
@@ -247,15 +247,15 @@ async def save_feeds(request: Request):
     if new_name or new_raw:
         new_path = substack.parse_feed_path(new_raw)
         if not new_name or not new_path:
-            errors.append("Neuer Katalog nicht angelegt (Name fehlt oder Pfad ungültig)")
+            errors.append("New catalog not created (name missing or path invalid)")
         elif len(out) >= MAX_FEEDS:
-            errors.append(f"Neuer Katalog nicht angelegt (maximal {MAX_FEEDS} Kataloge)")
+            errors.append(f"New catalog not created (maximum {MAX_FEEDS} catalogs)")
         else:
             out.append({"key": "f" + secrets.token_hex(3), "name": new_name, "path": new_path,
                         "limit": clamp_limit(form.get("new_limit")), "enabled": True})
     store.set_feeds(u["id"], out)
     drop_cache(u["id"])
-    flash(request, "Kataloge gespeichert." if not errors else "Gespeichert, aber: " + "; ".join(errors) + ".")
+    flash(request, "Catalogs saved." if not errors else "Saved, but: " + "; ".join(errors) + ".")
     return RedirectResponse("/", 303)
 
 
@@ -265,7 +265,7 @@ async def reset_feeds(request: Request):
     if u:
         store.set_feeds(u["id"], None)
         drop_cache(u["id"])
-        flash(request, "Kataloge auf Standard zurückgesetzt.")
+        flash(request, "Catalogs reset to defaults.")
     return RedirectResponse("/", 303)
 
 
@@ -273,15 +273,15 @@ async def reset_feeds(request: Request):
 async def register(request: Request, email: str = Form(), password: str = Form(), invite: str = Form("")):
     throttle(request)
     if not REGISTRATION_OPEN or (INVITE_CODE and invite != INVITE_CODE):
-        flash(request, "Registrierung nicht möglich.")
+        flash(request, "Registration is not possible.")
         return RedirectResponse("/", 303)
     email = email.strip().lower()
     if len(password) < 10 or "@" not in email:
-        flash(request, "Bitte gültige E-Mail und ein Passwort mit mindestens 10 Zeichen angeben.")
+        flash(request, "Please enter a valid email address and a password with at least 10 characters.")
         return RedirectResponse("/", 303)
     uid = store.create_user(email, password)
     if not uid:
-        flash(request, "Diese E-Mail ist bereits registriert.")
+        flash(request, "This email address is already registered.")
         return RedirectResponse("/", 303)
     request.session["uid"] = uid
     return RedirectResponse("/", 303)
@@ -292,7 +292,7 @@ async def login(request: Request, email: str = Form(), password: str = Form()):
     throttle(request)
     u = store.verify_user(email.strip().lower(), password)
     if not u:
-        flash(request, "E-Mail oder Passwort falsch.")
+        flash(request, "Wrong email or password.")
     else:
         request.session["uid"] = u["id"]
     return RedirectResponse("/", 303)
@@ -311,15 +311,15 @@ async def save_cookie(request: Request, cookie: str = Form()):
         return RedirectResponse("/", 303)
     c = clean_cookie(cookie)
     if not c:
-        flash(request, "Das sieht nicht wie ein substack.sid-Cookie aus.")
+        flash(request, "That does not look like a substack.sid cookie.")
         return RedirectResponse("/", 303)
     state = await check_cookie(c)
     if state == "invalid":
-        flash(request, "Substack lehnt dieses Cookie ab. Bist du dort eingeloggt?")
+        flash(request, "Substack rejects this cookie. Are you logged in there?")
         return RedirectResponse("/", 303)
     store.set_cookie(u["id"], c)
     drop_cache(u["id"])
-    flash(request, "Gespeichert." if state == "ok" else "Gespeichert, aber Substack ließ sich gerade nicht prüfen.")
+    flash(request, "Saved." if state == "ok" else "Saved, but Substack could not be checked right now.")
     return RedirectResponse("/", 303)
 
 
@@ -329,7 +329,7 @@ async def delete_cookie(request: Request):
     if u:
         store.set_cookie(u["id"], None)
         drop_cache(u["id"])
-        flash(request, "Substack getrennt.")
+        flash(request, "Substack disconnected.")
     return RedirectResponse("/", 303)
 
 
@@ -338,7 +338,7 @@ async def rotate(request: Request):
     u = current_user(request)
     if u:
         store.rotate_tokens(u["id"])
-        flash(request, "Neue Adressen erzeugt. Reader und Extension müssen aktualisiert werden.")
+        flash(request, "New addresses generated. Update your reader and the extension.")
     return RedirectResponse("/", 303)
 
 
@@ -360,13 +360,13 @@ async def api_cookie(request: Request, authorization: str = Header(default="")):
     token = authorization.removeprefix("Bearer ").strip()
     u = store.user_by_token("sync_token", token) if token else None
     if not u:
-        raise HTTPException(401, "Ungültiger Token")
+        raise HTTPException(401, "Invalid token")
     try:
         c = clean_cookie((await request.json()).get("cookie", ""))
     except Exception:
         c = ""
     if not c:
-        raise HTTPException(400, "Cookie fehlt oder ist ungültig")
+        raise HTTPException(400, "Cookie missing or invalid")
     store.set_cookie(u["id"], c)
     drop_cache(u["id"])
     return JSONResponse({"ok": True})
@@ -412,7 +412,7 @@ async def opds_root(token: str, request: Request):
         f"<entry><title>{esc(f['name'])}</title><id>urn:feed:{esc(f['key'])}</id><updated>{now_iso()}</updated>"
         f'<link rel="subsection" href="{esc(b)}/feed/{esc(f["key"])}" type="{OPDS_ACQ}"/></entry>'
         for f in store.get_feeds(u["id"]) if f["enabled"]
-    ] or [info_entry("Keine Kataloge aktiv", "Bitte in der Weboberfläche mindestens einen Katalog aktivieren.")]
+    ] or [info_entry("No catalogs enabled", "Please enable at least one catalog in the web interface.")]
     return atom("Substack", f"{b}/", f"{b}/", entries, nav=True)
 
 
@@ -426,7 +426,7 @@ async def opds_feed(token: str, key: str, request: Request):
     cookie = store.get_cookie(u["id"])
     entries: list[str] = []
     if not cookie:
-        entries.append(info_entry("Kein Substack-Zugang verbunden", "Bitte in der Weboberfläche verbinden."))
+        entries.append(info_entry("No Substack connection", "Please connect Substack in the web interface."))
     else:
         try:
             for p in await get_posts(u["id"], cookie, feed):
@@ -442,15 +442,15 @@ async def opds_feed(token: str, key: str, request: Request):
                     f'type="application/epub+zip"/></entry>'
                 )
             if not entries:
-                entries.append(info_entry("Keine Artikel", "Dieser Feed ist leer."))
+                entries.append(info_entry("No articles", "This catalog is empty."))
         except httpx.HTTPStatusError as ex:
             expired = ex.response.status_code in (401, 403)
             entries.append(info_entry(
-                "Substack-Session abgelaufen" if expired else f"Substack-Fehler {ex.response.status_code}",
-                "Bitte bei Substack neu einloggen (die Extension synct danach automatisch)." if expired
-                else "Später erneut versuchen."))
+                "Substack session expired" if expired else f"Substack error {ex.response.status_code}",
+                "Please log in to Substack again (the extension then syncs automatically)." if expired
+                else "Please try again later."))
         except httpx.HTTPError:
-            entries.append(info_entry("Substack nicht erreichbar", "Später erneut versuchen."))
+            entries.append(info_entry("Substack unreachable", "Please try again later."))
     return atom(feed["name"], f"{b}/feed/{key}", f"{b}/", entries, nav=False)
 
 
@@ -465,15 +465,15 @@ async def opds_post(token: str, name: str):
     if not os.path.exists(path):
         cookie = store.get_cookie(u["id"])
         if not cookie:
-            raise HTTPException(409, "Kein Substack-Zugang verbunden")
+            raise HTTPException(409, "No Substack connection")
         try:
             async with substack.SubstackClient(cookie, lambda c: store.set_cookie(u["id"], c)) as c:
                 post = await c.post(pid)
             data = await build_epub(post)
         except httpx.HTTPStatusError as ex:
-            raise HTTPException(502, f"Substack antwortet {ex.response.status_code}")
+            raise HTTPException(502, f"Substack responded with {ex.response.status_code}")
         except httpx.HTTPError:
-            raise HTTPException(502, "Substack nicht erreichbar")
+            raise HTTPException(502, "Substack unreachable")
         tmp = path + ".tmp"
         with open(tmp, "wb") as fh:
             fh.write(data)
@@ -490,7 +490,7 @@ async def opds_debug(token: str, key: str):
         raise HTTPException(404)
     cookie = store.get_cookie(u["id"])
     if not cookie:
-        raise HTTPException(409, "Kein Substack-Zugang verbunden")
+        raise HTTPException(409, "No Substack connection")
     async with substack.SubstackClient(cookie, lambda c: store.set_cookie(u["id"], c)) as c:
         r = await c.http.get(substack.BASE + feed["path"])
     out: dict = {"status": r.status_code, "final_url": str(r.url)}

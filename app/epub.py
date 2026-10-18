@@ -143,7 +143,7 @@ async def build_epub(post: dict) -> bytes:
     head += f"<p>{html.escape(author)}{' · ' + date if date else ''}</p><hr/>"
     foot = ""
     if re.match(r"https?://", p.get("canonical_url") or ""):
-        foot = f'<hr/><p><a href="{html.escape(p["canonical_url"])}">Originalartikel</a></p>'
+        foot = f'<hr/><p><a href="{html.escape(p["canonical_url"])}">Original article</a></p>'
 
     ch = epub.EpubHtml(title=title, file_name="article.xhtml", lang=lang)
     ch.content = head + str(soup) + foot

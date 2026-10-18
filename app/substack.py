@@ -1,9 +1,9 @@
 """Dünner Client für die inoffiziellen Substack-Web-Endpunkte.
 
-WICHTIG: Diese Endpunkte sind nicht dokumentiert und können sich ändern.
-Alle Pfade stehen in FEEDS, LOGIN_URL und POST_URL, damit sie an einer Stelle
-korrigiert werden können (im Browser: DevTools > Network auf substack.com).
-Die Pfade sind noch nicht gegen einen echten Account getestet.
+IMPORTANT: These endpoints are undocumented and can change at any time.
+The default feed paths (DEFAULT_FEEDS), LOGIN_URL and POST_URL live at the top of
+this file (find new ones in the browser: DevTools > Network on substack.com).
+The feed and post endpoints were verified against a real account on 2026-10-18.
 """
 import re
 import time
@@ -29,11 +29,11 @@ DEFAULT_LIMIT = 30
 #   {posts, publications, more, cursor}  (Abonnements-Inbox, Bezahlt, Gespeichert)
 #   {items, nextCursor}                   (Startseite "Für dich", gemischt mit Kommentaren)
 DEFAULT_FEEDS = [
-    {"key": "latest", "name": "Neueste",
+    {"key": "latest", "name": "Latest",
      "path": "/api/v1/inbox/top?inboxType=inbox&surface=inbox_all&limit=20"},
-    {"key": "for-you", "name": "Für dich", "path": "/api/v1/reader/feed?tab=for-you&type=base"},
-    {"key": "saved", "name": "Lesezeichen", "path": "/api/v1/reader/posts?inboxType=saved&limit=20"},
-    {"key": "paid", "name": "Bezahlt", "path": "/api/v1/reader/posts?inboxType=paid&limit=20"},
+    {"key": "for-you", "name": "For you", "path": "/api/v1/reader/feed?tab=for-you&type=base"},
+    {"key": "saved", "name": "Saved", "path": "/api/v1/reader/posts?inboxType=saved&limit=20"},
+    {"key": "paid", "name": "Paid", "path": "/api/v1/reader/posts?inboxType=paid&limit=20"},
 ]
 CHECK_PATH = "/api/v1/reader/posts?inboxType=saved&limit=20"
 
@@ -95,8 +95,8 @@ async def login_with_password(email: str, password: str) -> str:
         sid = _find_sid(http.cookies)
         if r.status_code >= 400 or not sid:
             raise LoginError(
-                f"Login fehlgeschlagen (HTTP {r.status_code}). "
-                "Kein Passwort gesetzt oder Captcha nötig?"
+                f"Login failed (HTTP {r.status_code}). "
+                "No password set or captcha required?"
             )
         return sid
 
@@ -109,7 +109,7 @@ def normalize(p: dict | None, pub: dict | None) -> dict | None:
     author = (bylines[0].get("name") if bylines else None) or pub.get("name") or "Substack"
     return {
         "id": p["id"],
-        "title": p.get("title") or "(ohne Titel)",
+        "title": p.get("title") or "(untitled)",
         "subtitle": p.get("subtitle") or p.get("description") or "",
         "date": p.get("post_date") or "",
         "url": p.get("canonical_url") or "",

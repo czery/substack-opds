@@ -1,8 +1,14 @@
 # Substack → OPDS
 
-Multi-user server that exposes Substack articles (Latest, For you, Saved, Paid) as an OPDS catalog. Each article is converted on request into a lean EPUB (grayscale images, max. 700 px). Built for CrossPoint on the Xteink X4/X3.
+Multi-user server that exposes Substack articles (Latest, For you, Saved, Paid) as an OPDS catalog. Each article is converted on request into a lean EPUB (grayscale images, max. 700 px). Built for [CrossPoint](https://github.com/crosspoint-reader/crosspoint-reader) on the Xteink X4/X3, but it works with any OPDS-capable reader.
+
+![Dashboard](docs/dashboard.png)
+
+**Features:** multi-user with registration (optionally invite-only) · automatic cookie sync via Chrome and Firefox extension · configurable catalogs and article counts · EPUBs optimized for e-ink · optional author prefix for sorting · per-user encrypted storage
 
 **Note:** Substack has no official API. The endpoints in `app/substack.py` are unofficial. They were verified against a real account, but may change at any time. If they break, all paths can be adjusted in that one place. Catalogs and the number of articles per catalog are configurable per user in the web dashboard.
+
+**Disclaimer:** This is an independent project and is not affiliated with Substack, CrossPoint or Xteink. It uses Substack's unofficial web API and your own login cookie to read content you already have access to. Substack's terms of service may not allow automated access, so use it at your own risk and only for your personal reading. Do not run a public instance for strangers. The best setup is your own instance, or one shared with people you trust.
 
 ## Deployment with Dokploy
 
@@ -68,7 +74,13 @@ The web interface is where each user manages their own account. Everything is pe
 
 ## Set up your reader
 
-In the CrossPoint OPDS browser, add a server with the address from the dashboard (`https://your-domain.com/o/<token>/`). Four catalogs appear. Tapping an article downloads the EPUB to the device.
+**CrossPoint (Xteink X4/X3):**
+1. Connect the device to your Wi-Fi: Settings → System → Wi-Fi Networks.
+2. Add the server: Settings → System → OPDS Servers → Add Server. Alternatively, start File Transfer mode and open `http://<device-ip>/settings` in a browser.
+3. Enter the root address from the dashboard, `https://your-domain.com/o/<token>/`, as the server URL. Use the root address, not a single feed; the catalogs (Latest, For you, Saved, Paid, plus your own) appear as sub-folders. Leave username and password empty.
+4. Open the OPDS browser on the device, choose the server, pick a catalog and an article. The EPUB is downloaded to the device.
+
+Menu names can differ between firmware versions. **Other readers** (KOReader, Calibre, Thorium, ...): add the same address as an OPDS catalog.
 
 ## Security
 
@@ -78,6 +90,14 @@ In the CrossPoint OPDS browser, add a server with the address from the dashboard
 - Images are only loaded from Substack hosts; the cookie is never sent to CDNs.
 - Access logs are disabled so tokens don't end up in logs.
 - If you run this for others: you need a privacy policy, and Substack's terms may prohibit this kind of use.
+
+## Contributing
+
+Issues and pull requests are welcome. Please run the smoke test (below) before submitting. If Substack changes its API, the endpoints are all in `app/substack.py`.
+
+## License
+
+[MIT](LICENSE)
 
 ## Local testing
 

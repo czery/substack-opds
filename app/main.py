@@ -383,3 +383,38 @@ async def opds_post(token: str, name: str):
             fh.write(data)
         os.replace(tmp, path)
     return FileResponse(path, media_type="application/epub+zip", filename=f"{name}.epub")
+
+
+@app.get("/o/{token}/debug/{key}")
+async def opds_debug(token: str, key: str):
+    """Diagnose: zeigt nur den Aufbau der Substack-Antwort (Schlüssel, Typen, Titel), keine Inhalte."""
+    u = _opds_user(token)
+    if key not in substack.FEEDS:
+        raise HTTPException(404)
+    cookie = store.get_cookie(u["id"])
+    if not cookie:
+        raise HTTPException(409, "Kein Substack-Zugang verbunden")
+    async with substack.SubstackClient(cookie, lambda c: store.set_cookie(u["id"], c)) as c:
+        r = await c.http.get(substack.BASE + substack.FEEDS[key][1])
+    out: dict = {"status": r.status_code, "final_url": str(r.url)}
+    try:
+        data = r.json()
+    except Exception:
+        out["body_start"] = r.text[:300]
+        return JSONResponse(out)
+    items = data if isinstance(data, list) else (data.get("items") or data.get("posts") or [])
+    if isinstance(data, dict):
+        out["top_keys"] = sorted(data)
+    out["count"] = len(items)
+    out["items"] = [
+        {
+            "keys": sorted(i)[:20],
+            "type": i.get("type"),
+            "post_keys": sorted(i["post"])[:12] if isinstance(i.get("post"), dict) else None,
+            "id": (i.get("post") or i).get("id"),
+            "title": (i.get("post") or i).get("title"),
+        }
+        for i in items[:40]
+        if isinstance(i, dict)
+    ]
+    return JSONResponse(out)

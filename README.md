@@ -16,6 +16,26 @@ HTTPS and certificates are handled by Dokploy's Traefik. The data folder lives i
 - Close registration: set `REGISTRATION_OPEN=0` and redeploy.
 - Backup: back up the `appdata` volume. The `keys.json` inside holds the key for the stored cookies. Without it, everyone has to reconnect.
 
+## Deployment with plain Docker
+
+No Dokploy needed. You need a server with Docker (including the Compose plugin), a domain whose DNS points to the server, and open ports 80 and 443. The bundled `docker-compose.caddy.yml` adds Caddy, which fetches and renews Let's Encrypt certificates automatically.
+
+```bash
+git clone https://github.com/<your-user>/substack-opds.git && cd substack-opds
+cp .env.example .env
+nano .env   # set DOMAIN=your-domain.com and PUBLIC_URL=https://your-domain.com
+docker compose -f docker-compose.yml -f docker-compose.caddy.yml up -d --build
+```
+
+Then open `https://your-domain.com`, register, and connect Substack as described below.
+
+- Update: `git pull && docker compose -f docker-compose.yml -f docker-compose.caddy.yml up -d --build`
+- Logs: `docker compose logs -f app`
+- Stop: `docker compose -f docker-compose.yml -f docker-compose.caddy.yml down` (data stays in the `appdata` volume)
+- Backup: `docker run --rm -v substack-opds_appdata:/data -v "$PWD":/backup alpine tar czf /backup/appdata.tgz -C /data .` (the volume name is `<folder name>_appdata`; check with `docker volume ls`)
+- Already have a reverse proxy (nginx, Traefik, ...)? Skip the Caddy file, publish the port instead, and proxy your domain to it with HTTPS and the `X-Forwarded-*` headers: add `ports: ["127.0.0.1:8000:8000"]` to the `app` service in a `docker-compose.override.yml` and run `docker compose up -d --build`.
+- Registration, invite code and key handling work as described under Dokploy.
+
 ## Connect Substack
 
 **Browser extension (recommended):**

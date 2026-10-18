@@ -237,8 +237,9 @@ Only <code>/api/…</code> paths or <code>https://substack.com/api/…</code> UR
 <button>Save catalogs</button></form>
 <form method=post action=/feeds/reset style=margin-top:10px><button class=sec>Reset to defaults</button></form>
 <h3>Author prefix</h3>
-<p class=mut>Optional text put in front of every author name in your reader, for example <code>Substack-</code>.
-Readers that sort their library by author then list all articles together under that prefix. It is written into the EPUB, so it applies to articles you download afterwards.</p>
+<p class=mut>Optional text put in front of every author name in your reader, for example <code>Substack - </code>.
+Inside the EPUB the author becomes “Prefix Lastname, Firstname” (e.g. “Substack - Hielscher, Matze”), so readers that sort their library by author list all articles together under that prefix.
+It is written into the EPUB, so it applies to articles you download afterwards.</p>
 <form method=post action=/prefix><label>Prefix<input name=prefix value="{esc(u['author_prefix'] or '')}" maxlength=30 placeholder="Substack-"></label>
 <button>Save prefix</button></form></div>"""
 

@@ -103,6 +103,17 @@ def main():
     assert r.json() == {"ok": True}
     print("extension API ok")
 
+    import io, json, zipfile
+    anon = TestClient(app, follow_redirects=False)
+    assert anon.get("/extension/chrome.zip").status_code == 303  # login required
+    assert c.get("/extension/safari.zip").status_code == 404
+    for br, bg in (("chrome", "service_worker"), ("firefox", "scripts")):
+        z = zipfile.ZipFile(io.BytesIO(c.get(f"/extension/{br}.zip").content))
+        assert sorted(z.namelist()) == ["background.js", "config.json", "manifest.json", "popup.html", "popup.js"], z.namelist()
+        assert bg in json.loads(z.read("manifest.json"))["background"], br
+        assert json.loads(z.read("config.json"))["token"] == sync
+    print("extension download ok")
+
     root = c.get(f"/o/{opds}/").text
     assert root.count("<entry>") == 4, root
     latest = c.get(f"/o/{opds}/feed/latest").text
@@ -166,6 +177,16 @@ def main():
     im = Image.open(io.BytesIO(z.read("EPUB/images/img1.jpg")))
     assert im.mode == "L" and im.width <= 700
     print("EPUB ok:", len(r.content), "bytes,", im.size, im.mode)
+
+    c.post("/prefix", data={"prefix": "Substack-"})
+    assert "Substack-" in c.get("/").text
+    r = c.get(f"/o/{opds}/post/42-ueber-aerger-oel.epub")  # old EPUB was purged, rebuilt with prefix
+    opf = zipfile.ZipFile(io.BytesIO(r.content)).read("EPUB/content.opf").decode()
+    assert "Substack-" in opf and 'property="file-as" scheme="marc:relators">Substack-' in opf, opf
+    assert "<name>Substack-" in c.get(f"/o/{opds}/feed/latest").text
+    c.post("/prefix", data={"prefix": ""})
+    assert "<name>Substack-" not in c.get(f"/o/{opds}/feed/latest").text
+    print("author prefix ok")
 
     assert c.get("/o/falscher-token/").status_code == 404
     c.post("/account/delete")

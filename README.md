@@ -68,7 +68,7 @@ The web interface is where each user manages their own account. Everything is pe
   - change the Substack feed path (only `/api/...` paths or `https://substack.com/api/...` URLs are accepted),
   - disable it or add your own catalogs,
   - reset everything to the defaults.
-- **Author prefix:** Optional text (max. 30 characters, e.g. `Substack-`) put in front of every author name, in the EPUB (author and sort key) and in the OPDS feed. Readers that sort by author then list all articles together. Changing it clears your cached EPUBs, so articles are rebuilt on the next download.
+- **Author prefix:** Optional text (max. 30 characters, e.g. `Substack - `) put in front of every author name. In the EPUB the author becomes `Prefix Lastname, Firstname` (e.g. `Substack - Hielscher, Matze`) and is also used as sort key, so readers that sort by author list all articles together. The OPDS feed shows `Prefix Firstname Lastname`. Changing it clears your cached EPUBs, so articles are rebuilt on the next download.
   Changes apply to the OPDS feed right away (feeds are cached for up to 2 minutes).
 - **Delete account:** Removes your user, cookie, settings and cached EPUBs from the server.
 

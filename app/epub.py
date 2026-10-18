@@ -81,6 +81,15 @@ def _whitelist(soup: BeautifulSoup):
         t.attrs = keep
 
 
+def sort_name(name: str) -> str:
+    """'Matze Hielscher' -> 'Hielscher, Matze'. Single words and names that already contain a comma stay as they are."""
+    name = name.strip()
+    if "," in name or " " not in name:
+        return name
+    first, last = name.rsplit(" ", 1)
+    return f"{last}, {first}"
+
+
 async def build_epub(post: dict, author_prefix: str = "") -> bytes:
     p = post.get("post") or post
     title = p.get("title") or "Substack"
@@ -98,8 +107,12 @@ async def build_epub(post: dict, author_prefix: str = "") -> bytes:
     book.set_title(title)
     book.set_language(lang)
     author = ((p.get("publishedBylines") or [{}])[0]).get("name") or "Substack"
-    # The optional prefix is also used as the sort key, so a reader that sorts by author groups all articles together.
-    book.add_author(author_prefix + author, file_as=(author_prefix + author) if author_prefix else None)
+    if author_prefix:
+        # "Prefix" + "Last, First": readers that sort by author name then group everything under the prefix.
+        shown = author_prefix + sort_name(author)
+        book.add_author(shown, file_as=shown)
+    else:
+        book.add_author(author)
 
     async with httpx.AsyncClient(
         follow_redirects=False, timeout=20, headers={"User-Agent": "Mozilla/5.0"}

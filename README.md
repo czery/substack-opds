@@ -45,6 +45,22 @@ Then open `https://your-domain.com`, register, and connect Substack as described
 
 **Manually:** Paste the value of `substack.sid` into the dashboard (DevTools → Application → Cookies → substack.com).
 
+## Web dashboard
+
+The web interface is where each user manages their own account. Everything is per user; other users' data is never visible.
+
+- **Register / log in:** Create an account with a username and password. If the server sets an `INVITE_CODE`, you need it to register; if `REGISTRATION_OPEN=0`, registration is closed.
+- **Substack connection:** Shows whether a `substack.sid` cookie is stored. It is filled automatically by the browser extension or can be pasted manually. You can delete the stored cookie at any time.
+- **Connection details:** Your personal OPDS address (`/o/<token>/`) for the reader and the sync token for the extension. Both can be rotated; the old values stop working immediately, so update the reader and extension afterwards.
+- **Catalogs:** The four defaults are Latest, For you, Saved and Paid. For each catalog you can:
+  - change the name,
+  - set how many articles to fetch (default 30, maximum 100; Substack returns 20 per request, the server pages automatically),
+  - change the Substack feed path (only `/api/...` paths or `https://substack.com/api/...` URLs are accepted),
+  - disable it or add your own catalogs,
+  - reset everything to the defaults.
+  Changes apply to the OPDS feed right away (feeds are cached for up to 2 minutes).
+- **Delete account:** Removes your user, cookie, settings and cached EPUBs from the server.
+
 ## Set up your reader
 
 In the CrossPoint OPDS browser, add a server with the address from the dashboard (`https://your-domain.com/o/<token>/`). Four catalogs appear. Tapping an article downloads the EPUB to the device.

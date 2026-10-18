@@ -235,7 +235,12 @@ Only <code>/api/…</code> paths or <code>https://substack.com/api/…</code> UR
 <label>Substack path or URL<input name=new_path placeholder="/api/v1/…"></label>
 <label>Number of articles<input name=new_limit type=number min=1 max={substack.MAX_LIMIT} value="{substack.DEFAULT_LIMIT}"></label></div>
 <button>Save catalogs</button></form>
-<form method=post action=/feeds/reset style=margin-top:10px><button class=sec>Reset to defaults</button></form></div>"""
+<form method=post action=/feeds/reset style=margin-top:10px><button class=sec>Reset to defaults</button></form>
+<h3>Author prefix</h3>
+<p class=mut>Optional text put in front of every author name in your reader, for example <code>Substack-</code>.
+Readers that sort their library by author then list all articles together under that prefix. It is written into the EPUB, so it applies to articles you download afterwards.</p>
+<form method=post action=/prefix><label>Prefix<input name=prefix value="{esc(u['author_prefix'] or '')}" maxlength=30 placeholder="Substack-"></label>
+<button>Save prefix</button></form></div>"""
 
 
 @app.post("/feeds")
@@ -337,6 +342,23 @@ async def save_cookie(request: Request, cookie: str = Form()):
     store.set_cookie(u["id"], c)
     drop_cache(u["id"])
     flash(request, "Saved." if state == "ok" else "Saved, but Substack could not be checked right now.")
+    return RedirectResponse("/", 303)
+
+
+@app.post("/prefix")
+async def save_prefix(request: Request, prefix: str = Form("")):
+    u = current_user(request)
+    if not u:
+        return RedirectResponse("/", 303)
+    prefix = re.sub(r"[\x00-\x1f<>&]", "", prefix).lstrip()[:30]
+    if prefix != (u["author_prefix"] or ""):
+        store.set_author_prefix(u["id"], prefix)
+        drop_cache(u["id"])
+        d = store.cache_dir(u["id"])  # EPUBs carry the prefix, so rebuild them on the next download
+        for f in os.listdir(d):
+            if f.endswith(".epub"):
+                os.remove(os.path.join(d, f))
+    flash(request, "Author prefix saved." if prefix else "Author prefix removed.")
     return RedirectResponse("/", 303)
 
 
@@ -479,7 +501,7 @@ async def opds_feed(token: str, key: str, request: Request):
                 entries.append(
                     f"<entry><title>{esc(p['title'] + paid)}</title><id>urn:substack:{p['id']}</id>"
                     f"<updated>{esc(p['date'] or now_iso())}</updated>"
-                    f"<author><name>{esc(p['author'])}</name></author>"
+                    f"<author><name>{esc((u['author_prefix'] or '') + p['author'])}</name></author>"
                     f"<summary>{esc(summary)}</summary>"
                     f'<link rel="http://opds-spec.org/acquisition" href="{esc(b)}/post/{name}.epub" '
                     f'type="application/epub+zip"/></entry>'
@@ -512,7 +534,7 @@ async def opds_post(token: str, name: str):
         try:
             async with substack.SubstackClient(cookie, lambda c: store.set_cookie(u["id"], c)) as c:
                 post = await c.post(pid)
-            data = await build_epub(post)
+            data = await build_epub(post, u["author_prefix"] or "")
         except httpx.HTTPStatusError as ex:
             raise HTTPException(502, f"Substack responded with {ex.response.status_code}")
         except httpx.HTTPError:

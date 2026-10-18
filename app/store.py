@@ -67,6 +67,8 @@ def init():
     cols = [r["name"] for r in _run("PRAGMA table_info(users)")[0]]
     if "feeds" not in cols:  # migration for existing databases
         _run("ALTER TABLE users ADD COLUMN feeds TEXT")
+    if "author_prefix" not in cols:
+        _run("ALTER TABLE users ADD COLUMN author_prefix TEXT")
     os.makedirs(os.path.join(DATA, "cache"), exist_ok=True)
 
 
@@ -96,6 +98,10 @@ def get_feeds(uid: int) -> list[dict]:
 def set_feeds(uid: int, feeds: list[dict] | None):
     """None resets to the default catalogs."""
     _run("UPDATE users SET feeds=? WHERE id=?", (None if feeds is None else json.dumps(feeds), uid))
+
+
+def set_author_prefix(uid: int, prefix: str):
+    _run("UPDATE users SET author_prefix=? WHERE id=?", (prefix or None, uid))
 
 
 def _hash(pw: str, salt: bytes | None = None) -> str:

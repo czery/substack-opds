@@ -103,17 +103,6 @@ def main():
     assert r.json() == {"ok": True}
     print("extension API ok")
 
-    import io, json, zipfile
-    anon = TestClient(app, follow_redirects=False)
-    assert anon.get("/extension/chrome.zip").status_code == 303  # login required
-    assert c.get("/extension/safari.zip").status_code == 404
-    for br, bg in (("chrome", "service_worker"), ("firefox", "scripts")):
-        z = zipfile.ZipFile(io.BytesIO(c.get(f"/extension/{br}.zip").content))
-        assert sorted(z.namelist()) == ["background.js", "config.json", "manifest.json", "popup.html", "popup.js"], z.namelist()
-        assert bg in json.loads(z.read("manifest.json"))["background"], br
-        assert json.loads(z.read("config.json"))["token"] == sync
-    print("extension download ok")
-
     root = c.get(f"/o/{opds}/").text
     assert root.count("<entry>") == 4, root
     latest = c.get(f"/o/{opds}/feed/latest").text

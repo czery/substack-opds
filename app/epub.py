@@ -81,7 +81,7 @@ def _whitelist(soup: BeautifulSoup):
         t.attrs = keep
 
 
-async def build_epub(post: dict) -> bytes:
+async def build_epub(post: dict, author_prefix: str = "") -> bytes:
     p = post.get("post") or post
     title = p.get("title") or "Substack"
     lang = p.get("language") or "en"
@@ -98,7 +98,8 @@ async def build_epub(post: dict) -> bytes:
     book.set_title(title)
     book.set_language(lang)
     author = ((p.get("publishedBylines") or [{}])[0]).get("name") or "Substack"
-    book.add_author(author)
+    # The optional prefix is also used as the sort key, so a reader that sorts by author groups all articles together.
+    book.add_author(author_prefix + author, file_as=(author_prefix + author) if author_prefix else None)
 
     async with httpx.AsyncClient(
         follow_redirects=False, timeout=20, headers={"User-Agent": "Mozilla/5.0"}

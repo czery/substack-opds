@@ -5,6 +5,8 @@ Alle Pfade stehen in FEEDS, LOGIN_URL und POST_URL, damit sie an einer Stelle
 korrigiert werden können (im Browser: DevTools > Network auf substack.com).
 Die Pfade sind noch nicht gegen einen echten Account getestet.
 """
+from urllib.parse import quote
+
 import httpx
 
 BASE = "https://substack.com"
@@ -14,17 +16,18 @@ UA = (
 )
 
 LOGIN_URL = "/api/v1/login"
-FEEDS = {
-    "latest": ("Neueste", "/api/v1/reader/feed?tab=all", None),
-    "for-you": ("Für dich", "/api/v1/reader/feed?tab=for-you", None),
-    "saved": ("Lesezeichen", "/api/v1/reader/posts/saved", None),
-    "paid": (
-        "Bezahlt",
-        "/api/v1/reader/feed?tab=all",
-        lambda p: p.get("audience") == "only_paid",
-    ),
-}
 POST_URL = "/api/v1/posts/by-id/{id}"
+MAX_PAGES = 8
+
+# key -> (Anzeigename, Pfad, Format)
+# Format "posts": {posts, publications, more, cursor}  (Abonnements-Inbox, Bezahlt, Gespeichert)
+# Format "feed":  {items, nextCursor}                   (Startseite "Für dich", gemischt mit Kommentaren)
+FEEDS = {
+    "latest": ("Neueste", "/api/v1/inbox/top?inboxType=inbox&surface=inbox_all&limit=20", "posts"),
+    "for-you": ("Für dich", "/api/v1/reader/feed?tab=for-you&type=base", "feed"),
+    "saved": ("Lesezeichen", "/api/v1/reader/posts?inboxType=saved&limit=20", "posts"),
+    "paid": ("Bezahlt", "/api/v1/reader/posts?inboxType=paid&limit=20", "posts"),
+}
 
 
 COOKIE_DOMAIN = "substack.com"
@@ -71,13 +74,12 @@ async def login_with_password(email: str, password: str) -> str:
         return sid
 
 
-def normalize(item: dict) -> dict | None:
-    p = item.get("post") or item
-    if not p.get("id"):
+def normalize(p: dict | None, pub: dict | None) -> dict | None:
+    if not p or not p.get("id"):
         return None
-    pub = item.get("publication") or p.get("publication") or {}
+    pub = pub or {}
     bylines = p.get("publishedBylines") or []
-    author = bylines[0].get("name") if bylines else pub.get("name")
+    author = (bylines[0].get("name") if bylines else None) or pub.get("name") or "Substack"
     return {
         "id": p["id"],
         "title": p.get("title") or "(ohne Titel)",
@@ -86,7 +88,7 @@ def normalize(item: dict) -> dict | None:
         "url": p.get("canonical_url") or "",
         "audience": p.get("audience") or "everyone",
         "pub": pub.get("name") or "",
-        "author": author or pub.get("name") or "Substack",
+        "author": author,
     }
 
 
@@ -114,15 +116,35 @@ class SubstackClient:
             self.on_cookie_update(new)
         await self.http.aclose()
 
-    async def feed(self, key: str, limit: int = 25) -> list[dict]:
-        _, path, flt = FEEDS[key]
-        r = await self.http.get(BASE + path)
-        r.raise_for_status()
-        data = r.json()
-        raw = data.get("items") or data.get("posts") or []
-        posts = [n for n in (normalize(i) for i in raw) if n]
-        if flt:
-            posts = [p for p in posts if flt(p)]
+    async def feed(self, key: str, limit: int = 30) -> list[dict]:
+        _, path, fmt = FEEDS[key]
+        posts: list[dict] = []
+        seen: set = set()
+        cursor = None
+        for _ in range(MAX_PAGES):
+            url = BASE + path + (f"&cursor={quote(cursor, safe='')}" if cursor else "")
+            r = await self.http.get(url)
+            r.raise_for_status()
+            d = r.json()
+            if fmt == "posts":
+                pubs = {x.get("id"): x for x in d.get("publications") or []}
+                batch = [normalize(p, pubs.get(p.get("publication_id"))) for p in d.get("posts") or []]
+                c = d.get("cursor")
+                cursor = c if d.get("more") and isinstance(c, str) else None
+            else:
+                batch = [
+                    normalize(i.get("post"), i.get("publication"))
+                    for i in d.get("items") or []
+                    if i.get("type") == "post"
+                ]
+                nc = d.get("nextCursor")
+                cursor = nc if isinstance(nc, str) else None
+            for n in batch:
+                if n and n["id"] not in seen:
+                    seen.add(n["id"])
+                    posts.append(n)
+            if len(posts) >= limit or not cursor:
+                break
         return posts[:limit]
 
     async def post(self, post_id: int | str) -> dict:

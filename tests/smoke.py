@@ -28,22 +28,40 @@ def png():
     return b.getvalue()
 
 
-ITEM = {"post": {"id": 42, "title": "Über Ärger & Öl", "subtitle": "Ein Test",
-                 "post_date": "2026-10-16T10:00:00.000Z", "audience": "only_paid",
-                 "canonical_url": "https://x.substack.com/p/test"},
-        "publication": {"name": "Testletter"}}
+PUB = {"id": 7, "name": "Testletter", "subdomain": "x"}
+POST = {"id": 42, "title": "Über Ärger & Öl", "subtitle": "Ein Test", "publication_id": 7,
+        "post_date": "2026-10-16T10:00:00.000Z", "audience": "only_paid",
+        "canonical_url": "https://x.substack.com/p/test"}
+POST2 = {**POST, "id": 43, "title": "Zweite Seite", "audience": "everyone"}
+
+
+def note(request: Request):
+    seen["cookies"].append(request.headers.get("cookie", ""))
+
+
+@fake.get("/api/v1/inbox/top")
+async def inbox(request: Request):
+    note(request)
+    return {"posts": [POST], "publications": [PUB], "more": False, "cursor": None}
+
+
+@fake.get("/api/v1/reader/posts")
+async def reader_posts(request: Request, inboxType: str = ""):
+    note(request)
+    return {"posts": [POST] if inboxType == "paid" else [], "publications": [PUB],
+            "more": False, "cursor": None}
 
 
 @fake.get("/api/v1/reader/feed")
-async def feed(request: Request):
-    seen["cookies"].append(request.headers.get("cookie", ""))
-    return {"items": [ITEM]}
-
-
-@fake.get("/api/v1/reader/posts/saved")
-async def saved(request: Request):
-    seen["cookies"].append(request.headers.get("cookie", ""))
-    return {"posts": [ITEM["post"]]}
+async def reader_feed(request: Request, cursor: str = ""):
+    note(request)
+    mixed = [{"type": "comment", "post": None}, {"type": "userSuggestions"}]
+    if not cursor:  # Seite 1: nur Kommentare + 1 Artikel, mit nextCursor
+        return {"items": mixed + [{"type": "post", "post": POST, "publication": PUB}],
+                "nextCursor": "c1"}
+    return {"items": mixed + [{"type": "post", "post": POST2, "publication": PUB},
+                              {"type": "post", "post": POST, "publication": PUB}],
+            "nextCursor": None}
 
 
 @fake.get("/api/v1/posts/by-id/{pid}")
@@ -52,7 +70,7 @@ async def post(pid: int):
             f'<div class="subscription-widget">KAUFEN</div>'
             f'<figure><a href="x"><img src="http://127.0.0.1:{PORT}/img.png"></a></figure>'
             '<p><a href="javascript:evil()">böse</a> <a href="https://ok.de">gut</a></p>')
-    return {**ITEM["post"], "body_html": body, "publishedBylines": [{"name": "Erika"}]}
+    return {"post": {**POST, "body_html": body, "publishedBylines": [{"name": "Erika"}]}}
 
 
 @fake.get("/img.png")
@@ -87,12 +105,17 @@ def main():
 
     root = c.get(f"/o/{opds}/").text
     assert root.count("<entry>") == 4, root
-    for key in ("latest", "saved", "paid"):
-        f = c.get(f"/o/{opds}/feed/{key}").text
-        assert "42-ueber-aerger-oel.epub" in f, (key, f)
-    assert "🔒" in c.get(f"/o/{opds}/feed/paid").text
+    latest = c.get(f"/o/{opds}/feed/latest").text
+    assert "42-ueber-aerger-oel.epub" in latest and "Testletter" in latest, latest
+    paid = c.get(f"/o/{opds}/feed/paid").text
+    assert "42-ueber-aerger-oel.epub" in paid and "🔒" in paid, paid
+    saved = c.get(f"/o/{opds}/feed/saved").text
+    assert "<entry>" in saved and "Keine Artikel" in saved, saved  # leerer Feed -> Hinweis
+    foryou = c.get(f"/o/{opds}/feed/for-you").text
+    assert foryou.count("urn:substack:") == 2, foryou  # Kommentare raus, geblättert, dedupliziert
+    assert "42-ueber" in foryou and "43-zweite-seite" in foryou, foryou
     assert cookie in seen["cookies"][-1], seen["cookies"]
-    print("OPDS-Feeds ok, Cookie wurde an Substack gesendet")
+    print("OPDS-Feeds ok (Inbox, Bezahlt, leer, Für dich mit Blättern), Cookie wurde gesendet")
 
     r = c.get(f"/o/{opds}/post/42-ueber-aerger-oel.epub")
     assert r.status_code == 200 and r.headers["content-type"] == "application/epub+zip"

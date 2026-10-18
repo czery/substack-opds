@@ -1,4 +1,4 @@
-"""SQLite-Speicher, Passwort-Hashing und Cookie-Verschlüsselung."""
+"""SQLite storage, password hashing and cookie encryption."""
 import hashlib
 import hmac
 import json
@@ -65,7 +65,7 @@ def init():
             created INTEGER NOT NULL)"""
     )
     cols = [r["name"] for r in _run("PRAGMA table_info(users)")[0]]
-    if "feeds" not in cols:  # Migration für bestehende Datenbanken
+    if "feeds" not in cols:  # migration for existing databases
         _run("ALTER TABLE users ADD COLUMN feeds TEXT")
     os.makedirs(os.path.join(DATA, "cache"), exist_ok=True)
 
@@ -75,7 +75,7 @@ def _default_feeds() -> list[dict]:
 
 
 def get_feeds(uid: int) -> list[dict]:
-    """Kataloge der Nutzer:in. Ohne eigene Einstellung gelten die Standard-Kataloge."""
+    """Catalogs of a user. Without custom settings the default catalogs apply."""
     u = get_user(uid)
     raw = u["feeds"] if u else None
     if raw is None:
@@ -94,7 +94,7 @@ def get_feeds(uid: int) -> list[dict]:
 
 
 def set_feeds(uid: int, feeds: list[dict] | None):
-    """None setzt auf die Standard-Kataloge zurück."""
+    """None resets to the default catalogs."""
     _run("UPDATE users SET feeds=? WHERE id=?", (None if feeds is None else json.dumps(feeds), uid))
 
 
@@ -126,7 +126,7 @@ _DUMMY = _hash("dummy")
 def verify_user(email: str, pw: str):
     rows, _ = _run("SELECT * FROM users WHERE email=?", (email,))
     if not rows:
-        _check(pw, _DUMMY)  # gleiche Laufzeit, kein User-Enumeration-Timing
+        _check(pw, _DUMMY)  # same runtime, no user-enumeration timing
         return None
     return rows[0] if _check(pw, rows[0]["pw"]) else None
 

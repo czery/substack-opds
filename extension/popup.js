@@ -5,7 +5,7 @@ async function render() {
   $("server").value = server || "";
   $("token").value = token || "";
   $("status").textContent = status
-    ? `${status.ok ? "✓" : "✗"} ${status.msg} (${new Date(status.at).toLocaleString("de-DE")})`
+    ? `${status.ok ? "✓" : "✗"} ${status.msg} (${new Date(status.at).toLocaleString()})`
     : "";
 }
 
@@ -14,16 +14,16 @@ $("save").addEventListener("click", async () => {
   try {
     url = new URL($("server").value.trim());
   } catch {
-    $("status").textContent = "✗ Ungültige Server-URL";
+    $("status").textContent = "✗ Invalid server URL";
     return;
   }
   if (url.protocol !== "https:") {
-    $("status").textContent = "✗ Nur https:// ist erlaubt";
+    $("status").textContent = "✗ Only https:// is allowed";
     return;
   }
   const granted = await chrome.permissions.request({ origins: [url.origin + "/*"] });
   if (!granted) {
-    $("status").textContent = "✗ Berechtigung für den Server abgelehnt";
+    $("status").textContent = "✗ Permission for the server was denied";
     return;
   }
   await chrome.storage.local.set({ server: url.origin, token: $("token").value.trim() });

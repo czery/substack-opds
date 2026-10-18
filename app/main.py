@@ -1,4 +1,4 @@
-"""Substack -> OPDS: Mehrnutzer-Server mit Weboberfläche, OPDS-Katalog und EPUB-Export."""
+"""Substack -> OPDS: multi-user server with web interface, OPDS catalog and EPUB export."""
 import html
 import os
 import re
@@ -37,7 +37,7 @@ _feed_cache: dict = {}
 _attempts: dict = {}
 
 
-# ---------- Helfer ----------
+# ---------- Helpers ----------
 
 def esc(s) -> str:
     return html.escape(str(s), quote=True)
@@ -86,7 +86,7 @@ async def check_cookie(cookie: str) -> str:
 
 
 async def get_posts(uid: int, cookie: str, f: dict):
-    ck = (uid, f["key"], f["path"], f["limit"])  # Einstellungen im Schlüssel: Änderungen wirken sofort
+    ck = (uid, f["key"], f["path"], f["limit"])  # settings are part of the key: changes take effect immediately
     hit = _feed_cache.get(ck)
     if hit and time.time() - hit[0] < 120:
         return hit[1]
@@ -115,7 +115,7 @@ def drop_cache(uid: int):
         del _feed_cache[k]
 
 
-# ---------- Weboberfläche ----------
+# ---------- Web interface ----------
 
 CSS = """
 :root{color-scheme:light dark;--bg:#fafaf7;--fg:#1d1d1b;--mut:#6b6b66;--card:#fff;--line:#e3e3dc;--acc:#ff6719}
@@ -352,7 +352,7 @@ async def delete_account(request: Request):
     return RedirectResponse("/", 303)
 
 
-# ---------- Extension-API ----------
+# ---------- Extension API ----------
 
 @app.post("/api/cookie")
 async def api_cookie(request: Request, authorization: str = Header(default="")):
@@ -461,7 +461,7 @@ async def opds_post(token: str, name: str):
     if not m:
         raise HTTPException(404)
     pid = int(m.group(1))
-    path = os.path.join(store.cache_dir(u["id"]), f"{pid}.epub")  # pro Nutzer:in, nie geteilt
+    path = os.path.join(store.cache_dir(u["id"]), f"{pid}.epub")  # per user, never shared
     if not os.path.exists(path):
         cookie = store.get_cookie(u["id"])
         if not cookie:
@@ -483,7 +483,7 @@ async def opds_post(token: str, name: str):
 
 @app.get("/o/{token}/debug/{key}")
 async def opds_debug(token: str, key: str):
-    """Diagnose: zeigt nur den Aufbau der Substack-Antwort (Schlüssel, Typen, Titel), keine Inhalte."""
+    """Diagnostics: shows only the structure of Substack's response (keys, types, titles), no content."""
     u = _opds_user(token)
     feed = find_feed(u["id"], key, only_enabled=False)
     if not feed:

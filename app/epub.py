@@ -1,4 +1,4 @@
-"""Substack-Artikel (body_html) -> schlankes EPUB für E-Ink-Reader."""
+"""Substack article (body_html) -> lean EPUB for e-ink readers."""
 import asyncio
 import html
 import io
@@ -10,7 +10,7 @@ from bs4 import BeautifulSoup
 from ebooklib import epub
 from PIL import Image
 
-# Nur diese Hosts werden serverseitig für Bilder abgerufen (Schutz vor SSRF).
+# Only these hosts are fetched server-side for images (SSRF protection).
 ALLOWED_HOSTS = ("substackcdn.com", "substack.com", "substack-post-media.s3.amazonaws.com")
 MAX_IMAGES = 25
 MAX_IMG_BYTES = 8 * 1024 * 1024
@@ -32,7 +32,7 @@ def _ok(url: str) -> bool:
 
 
 async def _fetch_img(http: httpx.AsyncClient, url: str) -> bytes | None:
-    for _ in range(4):  # Redirects manuell folgen und jeden Hop prüfen
+    for _ in range(4):  # follow redirects manually and check every hop
         if not _ok(url):
             return None
         r = await http.get(url)
@@ -64,7 +64,7 @@ def _clean(soup: BeautifulSoup):
         pic.unwrap()
     for a in soup.find_all("a"):
         if a.find("img"):
-            a.unwrap()  # Bild-Links (Vergrößern) wegwerfen, Bild behalten
+            a.unwrap()  # drop image links (enlarge), keep the image
 
 
 def _whitelist(soup: BeautifulSoup):
@@ -102,7 +102,7 @@ async def build_epub(post: dict) -> bytes:
 
     async with httpx.AsyncClient(
         follow_redirects=False, timeout=20, headers={"User-Agent": "Mozilla/5.0"}
-    ) as http:  # bewusst ohne Substack-Cookie
+    ) as http:  # deliberately without the Substack cookie
         sem = asyncio.Semaphore(5)
 
         async def one(url, width):

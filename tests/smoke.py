@@ -1,6 +1,6 @@
-"""Rauchtest gegen einen gefälschten Substack-Server (lokal, ohne Netzwerk zu Substack).
+"""Smoke test against a fake Substack server (local, no network access to Substack).
 
-Start:  DATA_DIR=$(mktemp -d) HTTPS_ONLY=0 python tests/smoke.py
+Run:    DATA_DIR=$(mktemp -d) HTTPS_ONLY=0 python tests/smoke.py
 """
 import io
 import re
@@ -29,10 +29,10 @@ def png():
 
 
 PUB = {"id": 7, "name": "Testletter", "subdomain": "x"}
-POST = {"id": 42, "title": "Über Ärger & Öl", "subtitle": "Ein Test", "publication_id": 7,
+POST = {"id": 42, "title": "Über Ärger & Öl", "subtitle": "A test", "publication_id": 7,
         "post_date": "2026-10-16T10:00:00.000Z", "audience": "only_paid",
         "canonical_url": "https://x.substack.com/p/test"}
-POST2 = {**POST, "id": 43, "title": "Zweite Seite", "audience": "everyone"}
+POST2 = {**POST, "id": 43, "title": "Second page", "audience": "everyone"}
 
 
 def note(request: Request):
@@ -56,7 +56,7 @@ async def reader_posts(request: Request, inboxType: str = ""):
 async def reader_feed(request: Request, cursor: str = ""):
     note(request)
     mixed = [{"type": "comment", "post": None}, {"type": "userSuggestions"}]
-    if not cursor:  # Seite 1: nur Kommentare + 1 Artikel, mit nextCursor
+    if not cursor:  # page 1: only comments + 1 article, with nextCursor
         return {"items": mixed + [{"type": "post", "post": POST, "publication": PUB}],
                 "nextCursor": "c1"}
     return {"items": mixed + [{"type": "post", "post": POST2, "publication": PUB},
@@ -66,10 +66,10 @@ async def reader_feed(request: Request, cursor: str = ""):
 
 @fake.get("/api/v1/posts/by-id/{pid}")
 async def post(pid: int):
-    body = ('<p>Hallo <strong>Welt</strong></p><script>alert(1)</script>'
+    body = ('<p>Hello <strong>world</strong></p><script>alert(1)</script>'
             f'<div class="subscription-widget">KAUFEN</div>'
             f'<figure><a href="x"><img src="http://127.0.0.1:{PORT}/img.png"></a></figure>'
-            '<p><a href="javascript:evil()">böse</a> <a href="https://ok.de">gut</a></p>')
+            '<p><a href="javascript:evil()">evil</a> <a href="https://ok.de">good</a></p>')
     return {"post": {**POST, "body_html": body, "publishedBylines": [{"name": "Erika"}]}}
 
 
@@ -85,7 +85,7 @@ def main():
     time.sleep(1)
     substack.BASE = f"http://127.0.0.1:{PORT}"
     substack.COOKIE_DOMAIN = "127.0.0.1"
-    epub._ok = lambda u: True  # Test-Host ist nicht in der Allowlist
+    epub._ok = lambda u: True  # the test host is not in the allowlist
 
     from fastapi.testclient import TestClient
     from app.main import app
@@ -95,13 +95,13 @@ def main():
     r = c.post("/register", data={"email": "a@b.de", "password": "langespasswort1"})
     opds = re.search(r"/o/([\w-]+)/", r.text).group(1)
     sync = re.search(r"sync token <code>([\w-]+)</code>", r.text).group(1)
-    print("registriert, Tokens ok")
+    print("registered, tokens ok")
 
     assert c.post("/api/cookie", json={"cookie": "x" * 40}, headers={"Authorization": "Bearer falsch"}).status_code == 401
     cookie = "s%3A" + "abc123" * 10
     r = c.post("/api/cookie", json={"cookie": cookie}, headers={"Authorization": f"Bearer {sync}"})
     assert r.json() == {"ok": True}
-    print("Extension-API ok")
+    print("extension API ok")
 
     root = c.get(f"/o/{opds}/").text
     assert root.count("<entry>") == 4, root
@@ -110,16 +110,16 @@ def main():
     paid = c.get(f"/o/{opds}/feed/paid").text
     assert "42-ueber-aerger-oel.epub" in paid and "🔒" in paid, paid
     saved = c.get(f"/o/{opds}/feed/saved").text
-    assert "<entry>" in saved and "No articles" in saved, saved  # leerer Feed -> Hinweis
+    assert "<entry>" in saved and "No articles" in saved, saved  # empty catalog -> info entry
     foryou = c.get(f"/o/{opds}/feed/for-you").text
-    assert foryou.count("urn:substack:") == 2, foryou  # Kommentare raus, geblättert, dedupliziert
-    assert "42-ueber" in foryou and "43-zweite-seite" in foryou, foryou
+    assert foryou.count("urn:substack:") == 2, foryou  # comments dropped, paged, deduplicated
+    assert "42-ueber" in foryou and "43-second-page" in foryou, foryou
     assert cookie in seen["cookies"][-1], seen["cookies"]
-    print("OPDS-Feeds ok (Inbox, Bezahlt, leer, Für dich mit Blättern), Cookie wurde gesendet")
+    print("OPDS catalogs ok (inbox, paid, empty, For you with paging), cookie was sent")
 
-    # --- Kataloge im Dashboard konfigurieren ---
+    # --- configure catalogs in the dashboard ---
     from app import store
-    defaults = {"latest": "Neueste", "for-you": "Für dich", "saved": "Lesezeichen", "paid": "Bezahlt"}
+    defaults = {"latest": "Latest", "for-you": "For you", "saved": "Saved", "paid": "Paid"}
     paths = {f["key"]: f["path"] for f in substack.DEFAULT_FEEDS}
 
     def form(limits=None, enabled=None, delete=(), new=None):
@@ -134,43 +134,43 @@ def main():
     n_entries = lambda t: t.count("urn:substack:")
     r = c.post("/feeds", data=form(limits={"for-you": 1}, new=("Meine Liste", "https://substack.com/api/v1/reader/posts?inboxType=paid&limit=20", "5")))
     assert "Catalogs saved" in r.text, r.text[:800]
-    assert n_entries(c.get(f"/o/{opds}/feed/for-you").text) == 1  # Anzahl wirkt (Seite 2 wird nicht geholt)
+    assert n_entries(c.get(f"/o/{opds}/feed/for-you").text) == 1  # limit works (page 2 is not fetched)
     root = c.get(f"/o/{opds}/").text
     assert root.count("<entry>") == 5 and "Meine Liste" in root, root
     custom = re.search(r"feed/(f[0-9a-f]{6})", root).group(1)
     assert "42-ueber" in c.get(f"/o/{opds}/feed/{custom}").text
-    print("Kataloge konfigurierbar: Anzahl, neuer Katalog ok")
+    print("catalogs configurable: limit, new catalog ok")
 
-    r = c.post("/feeds", data=form(new=("Böse", "https://evil.example/api/v1/x", "5")))
+    r = c.post("/feeds", data=form(new=("Evil", "https://evil.example/api/v1/x", "5")))
     assert "New catalog not created" in r.text
-    r = c.post("/feeds", data=form(new=("Böse", "/etc/passwd", "5")))
+    r = c.post("/feeds", data=form(new=("Evil", "/etc/passwd", "5")))
     assert "New catalog not created" in r.text
-    print("Fremde Hosts und ungültige Pfade abgelehnt")
+    print("foreign hosts and invalid paths rejected")
 
     r = c.post("/feeds", data=form(enabled=["latest", "for-you", "paid"]))
     assert c.get(f"/o/{opds}/").text.count("<entry>") == 3
-    assert c.get(f"/o/{opds}/feed/saved").status_code == 404  # deaktiviert
+    assert c.get(f"/o/{opds}/feed/saved").status_code == 404  # disabled
     c.post("/feeds/reset")
     assert c.get(f"/o/{opds}/").text.count("<entry>") == 4
-    assert n_entries(c.get(f"/o/{opds}/feed/for-you").text) == 2  # wieder Standard (30 -> blättert)
-    print("Deaktivieren und Zurücksetzen ok")
+    assert n_entries(c.get(f"/o/{opds}/feed/for-you").text) == 2  # defaults again (30 -> pages through)
+    print("disable and reset ok")
 
     r = c.get(f"/o/{opds}/post/42-ueber-aerger-oel.epub")
     assert r.status_code == 200 and r.headers["content-type"] == "application/epub+zip"
     z = zipfile.ZipFile(io.BytesIO(r.content))
     names = z.namelist()
     art = z.read("EPUB/article.xhtml").decode()
-    assert "Hallo" in art and "alert" not in art and "KAUFEN" not in art and "javascript:" not in art
+    assert "Hello" in art and "alert" not in art and "KAUFEN" not in art and "javascript:" not in art
     assert "https://ok.de" in art and "images/img1.jpg" in art, art
     assert any(n.endswith("img1.jpg") for n in names)
     im = Image.open(io.BytesIO(z.read("EPUB/images/img1.jpg")))
     assert im.mode == "L" and im.width <= 700
-    print("EPUB ok:", len(r.content), "Bytes,", im.size, im.mode)
+    print("EPUB ok:", len(r.content), "bytes,", im.size, im.mode)
 
     assert c.get("/o/falscher-token/").status_code == 404
     c.post("/account/delete")
     assert c.get(f"/o/{opds}/").status_code == 404
-    print("Konto löschen ok\nALLES GRÜN")
+    print("account deletion ok\nALL GREEN")
 
 
 main()

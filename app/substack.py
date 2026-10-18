@@ -1,4 +1,4 @@
-"""Dünner Client für die inoffiziellen Substack-Web-Endpunkte.
+"""Thin client for Substack's unofficial web endpoints.
 
 IMPORTANT: These endpoints are undocumented and can change at any time.
 The default feed paths (DEFAULT_FEEDS), LOGIN_URL and POST_URL live at the top of
@@ -19,15 +19,15 @@ UA = (
 
 LOGIN_URL = "/api/v1/login"
 POST_URL = "/api/v1/posts/by-id/{id}"
-MAX_PAGES = 15  # höchstens so viele Abrufe pro Katalog
-TIME_BUDGET = 12.0  # Sekunden; danach wird mit dem bisher Gesammelten geantwortet
+MAX_PAGES = 15  # maximum number of requests per catalog
+TIME_BUDGET = 12.0  # seconds; after that the server responds with what it has collected so far
 MAX_LIMIT = 100
 DEFAULT_LIMIT = 30
 
-# Standard-Kataloge. Pro Nutzer:in im Dashboard änderbar.
-# Zwei Antwortformate werden automatisch erkannt:
-#   {posts, publications, more, cursor}  (Abonnements-Inbox, Bezahlt, Gespeichert)
-#   {items, nextCursor}                   (Startseite "Für dich", gemischt mit Kommentaren)
+# Default catalogs. Each user can change them in the dashboard.
+# Two response formats are detected automatically:
+#   {posts, publications, more, cursor}  (subscriptions inbox, Paid, Saved)
+#   {items, nextCursor}                   (home "For you", mixed with comments)
 DEFAULT_FEEDS = [
     {"key": "latest", "name": "Latest",
      "path": "/api/v1/inbox/top?inboxType=inbox&surface=inbox_all&limit=20"},
@@ -39,10 +39,10 @@ CHECK_PATH = "/api/v1/reader/posts?inboxType=saved&limit=20"
 
 
 def parse_feed_path(raw: str) -> str | None:
-    """Akzeptiert einen /api/…-Pfad oder eine https://substack.com/api/…-URL.
+    """Accepts an /api/… path or a https://substack.com/api/… URL.
 
-    Gibt den Pfad (mit Query) zurück oder None. Fremde Hosts sind nicht erlaubt,
-    der Server ruft immer nur substack.com auf.
+    Returns the path (with query) or None. Foreign hosts are not allowed,
+    the server only ever calls substack.com.
     """
     raw = (raw or "").strip()
     if raw.startswith(("http://", "https://")):
@@ -65,7 +65,7 @@ class LoginError(Exception):
 
 
 def _find_sid(jar, old=None):
-    """Bevorzugt ein vom Server neu gesetztes substack.sid, sonst das alte."""
+    """Prefers a substack.sid newly set by the server, otherwise the old one."""
     for c in jar.jar:
         if c.name == "substack.sid" and c.value != old:
             return c.value
@@ -73,11 +73,11 @@ def _find_sid(jar, old=None):
 
 
 async def login_with_password(email: str, password: str) -> str:
-    """Meldet sich an und gibt den Wert von substack.sid zurück.
+    """Logs in and returns the value of substack.sid.
 
-    Das Passwort wird nur für diesen Aufruf benutzt und nicht gespeichert.
-    Funktioniert nur, wenn der Account ein Passwort gesetzt hat und Substack
-    kein Captcha verlangt. Sonst bleibt der Cookie-Weg (Extension/Einfügen).
+    The password is only used for this call and is not stored.
+    Only works if the account has a password set and Substack does not
+    require a captcha. Otherwise use the cookie route (extension/paste).
     """
     async with httpx.AsyncClient(
         headers={"User-Agent": UA}, follow_redirects=True, timeout=30
@@ -120,7 +120,7 @@ def normalize(p: dict | None, pub: dict | None) -> dict | None:
 
 
 class SubstackClient:
-    """Async-Context-Manager. Meldet ein erneuertes Cookie via on_cookie_update."""
+    """Async context manager. Reports a renewed cookie via on_cookie_update."""
 
     def __init__(self, cookie: str, on_cookie_update=None):
         self.cookie = cookie
@@ -133,7 +133,7 @@ class SubstackClient:
             follow_redirects=True,
             timeout=30,
         )
-        # Cookie nur für substack.com, nie an CDNs oder fremde Hosts senden.
+        # Send the cookie to substack.com only, never to CDNs or foreign hosts.
         self.http.cookies.set("substack.sid", self.cookie, domain=COOKIE_DOMAIN)
         return self
 
@@ -144,7 +144,7 @@ class SubstackClient:
         await self.http.aclose()
 
     async def feed(self, path: str, limit: int = DEFAULT_LIMIT) -> list[dict]:
-        """Holt Artikel von einem Substack-Pfad und blättert per cursor, bis `limit` erreicht ist."""
+        """Fetches articles from a Substack path and pages via cursor until `limit` is reached."""
         posts: list[dict] = []
         seen: set = set()
         cursor = None

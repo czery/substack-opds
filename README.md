@@ -1,44 +1,44 @@
 # Substack → OPDS
 
-Mehrnutzer-Server, der Substack-Artikel (Neueste, Für dich, Lesezeichen, Bezahlt) als OPDS-Katalog bereitstellt. Jeder Artikel wird beim Abruf in ein schlankes EPUB umgewandelt (Bilder in Graustufen, max. 700 px). Gedacht für CrossPoint auf dem Xteink X4/X3.
+Multi-user server that exposes Substack articles (Latest, For you, Saved, Paid) as an OPDS catalog. Each article is converted on request into a lean EPUB (grayscale images, max. 700 px). Built for CrossPoint on the Xteink X4/X3.
 
-**Hinweis:** Substack hat keine offizielle API. Die Endpunkte in `app/substack.py` sind inoffiziell und noch nicht gegen einen echten Account getestet. Brechen sie, sind alle Pfade dort an einer Stelle anpassbar.
+**Note:** Substack has no official API. The endpoints in `app/substack.py` are unofficial. They were verified against a real account, but may change at any time. If they break, all paths can be adjusted in that one place. Catalogs and the number of articles per catalog are configurable per user in the web dashboard.
 
-## Deployment mit Dokploy
+## Deployment with Dokploy
 
-1. In Dokploy eine Compose-Anwendung anlegen, Provider GitHub, Repo `substack-opds`, Branch `main`, Compose-Pfad `./docker-compose.yml`, Trigger *On Push*.
-2. Im Tab *Environment* setzen: `PUBLIC_URL=https://deine-domain.de`, `REGISTRATION_OPEN=1` und optional `INVITE_CODE`.
-3. Im Tab *Domains* die Domain für den Service `app` auf Port `8000` eintragen, HTTPS mit Let's Encrypt aktivieren.
-4. Deploy starten. Danach löst jeder Push auf `main` ein neues Deployment aus.
+1. In Dokploy, create a Compose application: provider GitHub, repo `substack-opds`, branch `main`, compose path `./docker-compose.yml`, trigger *On Push*.
+2. In the *Environment* tab, set `PUBLIC_URL=https://your-domain.com`, `REGISTRATION_OPEN=1` and optionally `INVITE_CODE`.
+3. In the *Domains* tab, add your domain for the service `app` on port `8000` and enable HTTPS with Let's Encrypt.
+4. Start the deployment. From then on, every push to `main` triggers a new deployment.
 
-HTTPS und Zertifikate übernimmt Traefik von Dokploy. Der Daten-Ordner liegt im Named Volume `appdata`.
+HTTPS and certificates are handled by Dokploy's Traefik. The data folder lives in the named volume `appdata`.
 
-- Registrierung schließen: `REGISTRATION_OPEN=0` setzen und neu deployen.
-- Backup: das Volume `appdata` sichern. `keys.json` darin enthält den Schlüssel für die gespeicherten Cookies. Ohne ihn müssen sich alle neu verbinden.
+- Close registration: set `REGISTRATION_OPEN=0` and redeploy.
+- Backup: back up the `appdata` volume. The `keys.json` inside holds the key for the stored cookies. Without it, everyone has to reconnect.
 
-## Substack verbinden
+## Connect Substack
 
-**Browser-Extension (empfohlen):**
-1. In Chrome `chrome://extensions` öffnen, Entwicklermodus an, "Entpackte Erweiterung laden" und den Ordner `extension/` wählen.
-2. Auf das Extension-Symbol klicken, Server-URL und Sync-Token eintragen (beides steht im Dashboard), speichern.
-3. Ab dann sendet die Extension `substack.sid` bei jeder Änderung und alle 6 Stunden an den Server. Du musst bei Substack im Browser eingeloggt sein.
+**Browser extension (recommended):**
+1. Open `chrome://extensions` in Chrome, enable developer mode, click "Load unpacked" and select the `extension/` folder.
+2. Click the extension icon, enter the server URL and sync token (both are shown in the dashboard) and save.
+3. From then on, the extension sends `substack.sid` to the server whenever it changes and every 6 hours. You need to be logged in to Substack in your browser.
 
-**Manuell:** Im Dashboard den Wert von `substack.sid` einfügen (DevTools → Application → Cookies → substack.com).
+**Manually:** Paste the value of `substack.sid` into the dashboard (DevTools → Application → Cookies → substack.com).
 
-## Reader einrichten
+## Set up your reader
 
-Im CrossPoint-OPDS-Browser einen Server mit der Adresse aus dem Dashboard hinzufügen (`https://deine-domain.de/o/<token>/`). Es erscheinen vier Kataloge. Ein Tippen auf einen Artikel lädt das EPUB aufs Gerät.
+In the CrossPoint OPDS browser, add a server with the address from the dashboard (`https://your-domain.com/o/<token>/`). Four catalogs appear. Tapping an article downloads the EPUB to the device.
 
-## Sicherheit
+## Security
 
-- Cookies liegen verschlüsselt (Fernet) in SQLite, Passwörter als scrypt-Hash.
-- Die OPDS-Adresse ist ein geheimer Token. Im Dashboard lässt sie sich erneuern.
-- EPUBs werden pro Nutzer:in gecacht und nie geteilt (bezahlte Artikel!). Cache wird nach 30 Tagen geleert.
-- Bilder werden nur von Substack-Hosts geladen, das Cookie geht nie an CDNs.
-- Zugriffslogs sind aus, damit Tokens nicht in Logs landen.
-- Betrieb für andere: Datenschutzerklärung nötig, und Substack kann die Nutzung in den AGB untersagen.
+- Cookies are stored encrypted (Fernet) in SQLite, passwords as scrypt hashes.
+- The OPDS address is a secret token. It can be rotated in the dashboard.
+- EPUBs are cached per user and never shared (paid articles!). The cache is purged after 30 days.
+- Images are only loaded from Substack hosts; the cookie is never sent to CDNs.
+- Access logs are disabled so tokens don't end up in logs.
+- If you run this for others: you need a privacy policy, and Substack's terms may prohibit this kind of use.
 
-## Lokal testen
+## Local testing
 
 ```bash
 python3 -m venv .venv && .venv/bin/pip install -r requirements.txt

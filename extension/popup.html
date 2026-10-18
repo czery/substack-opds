@@ -1,0 +1,22 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<style>
+  body{font:14px system-ui,sans-serif;width:300px;padding:12px;margin:0}
+  label{display:block;margin:8px 0 2px;font-weight:600}
+  input{width:100%;box-sizing:border-box;padding:6px}
+  button{margin-top:10px;padding:6px 12px}
+  #status{margin-top:10px;color:#555}
+</style>
+</head>
+<body>
+  <label for="server">Server-URL</label>
+  <input id="server" placeholder="https://deine-domain.de">
+  <label for="token">Sync-Token</label>
+  <input id="token" type="password">
+  <button id="save">Speichern &amp; synchronisieren</button>
+  <div id="status"></div>
+  <script src="popup.js"></script>
+</body>
+</html>

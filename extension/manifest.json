@@ -1,0 +1,11 @@
+{
+  "manifest_version": 3,
+  "name": "Substack → OPDS Sync",
+  "version": "0.1.0",
+  "description": "Schickt dein substack.sid-Cookie automatisch an deinen OPDS-Server.",
+  "permissions": ["cookies", "storage", "alarms"],
+  "host_permissions": ["https://substack.com/*"],
+  "optional_host_permissions": ["https://*/*"],
+  "background": { "service_worker": "background.js" },
+  "action": { "default_popup": "popup.html", "default_title": "Substack → OPDS" }
+}

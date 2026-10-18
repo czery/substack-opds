@@ -38,10 +38,14 @@ Then open `https://your-domain.com`, register, and connect Substack as described
 
 ## Connect Substack
 
-**Browser extension (recommended):**
-1. Open `chrome://extensions` in Chrome, enable developer mode, click "Load unpacked" and select the `extension/` folder.
-2. Click the extension icon, enter the server URL and sync token (both are shown in the dashboard) and save.
-3. From then on, the extension sends `substack.sid` to the server whenever it changes and every 6 hours. You need to be logged in to Substack in your browser.
+**Browser extension (recommended), Chrome/Edge/Brave and Firefox:**
+1. In the dashboard, under "Substack connection", download the extension for your browser. The package is personalized: server URL and sync token are already filled in. (Without the dashboard, load the `extension/` folder directly in Chrome.)
+2. Chrome/Edge/Brave: unzip it, open `chrome://extensions`, enable developer mode, click "Load unpacked" and select the folder.
+   Firefox: open `about:debugging#/runtime/this-firefox`, click "Load Temporary Add-on…" and select the zip. Temporary add-ons disappear when Firefox closes; for a permanent install use Developer Edition/Nightly with `xpinstall.signatures.required=false`, or sign it via addons.mozilla.org (unlisted, e.g. `npx web-ext sign`).
+3. Click the extension icon, press "Save & sync" and allow access to your server and substack.com.
+4. From then on, the extension sends `substack.sid` to the server whenever it changes and every 6 hours. You need to be logged in to Substack in that browser.
+
+Browsers don't allow one-click installs from outside their stores, which is why the extension is loaded manually. The Firefox build uses `extension/manifest.firefox.json` (MV3 with `background.scripts`); the server swaps it in as `manifest.json` when building the download.
 
 **Manually:** Paste the value of `substack.sid` into the dashboard (DevTools → Application → Cookies → substack.com).
 
@@ -50,7 +54,7 @@ Then open `https://your-domain.com`, register, and connect Substack as described
 The web interface is where each user manages their own account. Everything is per user; other users' data is never visible.
 
 - **Register / log in:** Create an account with an email address and password. If the server sets an `INVITE_CODE`, you need it to register; if `REGISTRATION_OPEN=0`, registration is closed.
-- **Substack connection:** Shows whether a `substack.sid` cookie is stored. It is filled automatically by the browser extension or can be pasted manually. You can delete the stored cookie at any time.
+- **Substack connection:** Shows whether a `substack.sid` cookie is stored. It is filled automatically by the browser extension (personalized Chrome and Firefox downloads with install steps are right there) or can be pasted manually. You can disconnect Substack at any time.
 - **Connection details:** Your personal OPDS address (`/o/<token>/`) for the reader and the sync token for the extension. Both can be rotated; the old values stop working immediately, so update the reader and extension afterwards.
 - **Catalogs:** The four defaults are Latest, For you, Saved and Paid. For each catalog you can:
   - change the name,

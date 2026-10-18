@@ -1,10 +1,14 @@
 """Substack -> OPDS: multi-user server with web interface, OPDS catalog and EPUB export."""
 import html
+import io
+import json
 import os
 import re
 import secrets
 import time
 import unicodedata
+import zipfile
+from pathlib import Path
 from datetime import datetime, timezone
 
 import httpx
@@ -125,6 +129,7 @@ main{max-width:640px;margin:0 auto;padding:24px 16px 64px}h1{font-size:1.5rem;ma
 .card{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:16px;margin:16px 0}
 input,textarea{width:100%;padding:10px;margin:4px 0 10px;border:1px solid var(--line);border-radius:6px;background:var(--bg);color:var(--fg);font:inherit}
 button{padding:10px 16px;border:0;border-radius:6px;background:var(--acc);color:#fff;font:inherit;cursor:pointer}
+.btn{display:inline-block;padding:10px 16px;border-radius:6px;background:var(--acc);color:#fff;text-decoration:none;margin:0 6px 6px 0}
 button.sec{background:transparent;color:var(--fg);border:1px solid var(--line)}button.danger{background:#b3261e}
 code{background:var(--bg);padding:2px 6px;border-radius:4px;word-break:break-all}.mut{color:var(--mut);font-size:.9rem}
 .flash{padding:10px 14px;border-radius:6px;background:var(--card);border-left:4px solid var(--acc);margin:12px 0}
@@ -179,11 +184,23 @@ async def index(request: Request):
 <p><code>{esc(b)}/o/{esc(u['opds_token'])}/</code></p>
 <p class=mut>This address is secret and grants access to your account. Add it to your reader as an OPDS server.</p></div>
 <div class=card><h2>Substack connection: {esc(connected)}</h2>
-<p class=mut>The easiest way is the browser extension (it syncs the cookie automatically).
-Alternatively, paste the value of <code>substack.sid</code> here (DevTools → Application → Cookies → substack.com).</p>
+<p class=mut>The easiest way is the browser extension. It reads your <code>substack.sid</code> cookie and sends it to this server
+whenever it changes and every 6 hours, so your reader keeps working without any manual steps. You have to stay logged in to Substack in that browser.
+The cookie is only sent to this server.</p>
+<p><a class=btn href=/extension/chrome.zip>Download for Chrome / Edge / Brave</a>
+<a class=btn href=/extension/firefox.zip>Download for Firefox</a></p>
+<p class=mut>The download is personalized: server address and sync token are already filled in.
+Browsers do not allow one-click installs from outside their stores, so it takes a few steps:</p>
+<ol class=mut>
+<li><strong>Chrome / Edge / Brave:</strong> unzip the file, open <code>chrome://extensions</code>, enable developer mode, click “Load unpacked” and select the unzipped folder.</li>
+<li><strong>Firefox:</strong> open <code>about:debugging#/runtime/this-firefox</code>, click “Load Temporary Add-on…” and select the zip file (or its <code>manifest.json</code>).
+Temporary add-ons are removed when Firefox closes; for a permanent install use Firefox Developer Edition/Nightly with <code>xpinstall.signatures.required</code> set to false, or sign the add-on yourself via addons.mozilla.org (unlisted).</li>
+<li>Click the extension icon, press “Save &amp; sync” and allow access to this server and substack.com when asked.</li>
+</ol>
+<p class=mut>Without the download: set up the extension manually with server <code>{esc(b)}</code> and sync token <code>{esc(u['sync_token'])}</code>.
+Or paste the value of <code>substack.sid</code> here (DevTools → Application → Cookies → substack.com).</p>
 <form method=post action=/cookie><textarea name=cookie rows=3 placeholder="substack.sid value" required></textarea>
-<button>Save cookie</button></form>
-<p class=mut>For the extension: server <code>{esc(b)}</code> and sync token <code>{esc(u['sync_token'])}</code></p></div>
+<button>Save cookie</button></form></div>
 {feeds_card(u)}
 <div class=card><h2>Account</h2>
 <form method=post action=/cookie/delete style=display:inline><button class=sec>Disconnect Substack</button></form>
@@ -370,6 +387,32 @@ async def api_cookie(request: Request, authorization: str = Header(default="")):
     store.set_cookie(u["id"], c)
     drop_cache(u["id"])
     return JSONResponse({"ok": True})
+
+
+EXT_DIR = Path(__file__).resolve().parent.parent / "extension"
+EXT_FILES = ("background.js", "popup.html", "popup.js")
+
+
+@app.get("/extension/{browser}.zip")
+def extension_zip(request: Request, browser: str):
+    """Personalized extension package: server URL and sync token are prefilled in config.json."""
+    u = current_user(request)
+    if not u:
+        return RedirectResponse("/", 303)
+    if browser not in ("chrome", "firefox"):
+        raise HTTPException(404)
+    manifest = "manifest.json" if browser == "chrome" else "manifest.firefox.json"
+    buf = io.BytesIO()
+    with zipfile.ZipFile(buf, "w", zipfile.ZIP_DEFLATED) as z:
+        z.write(EXT_DIR / manifest, "manifest.json")
+        for name in EXT_FILES:
+            z.write(EXT_DIR / name, name)
+        z.writestr("config.json", json.dumps({"server": base(request), "token": u["sync_token"]}))
+    return Response(
+        buf.getvalue(), media_type="application/zip",
+        headers={"Content-Disposition": f'attachment; filename="substack-opds-{browser}.zip"',
+                 "Cache-Control": "no-store"},
+    )
 
 
 @app.get("/healthz")

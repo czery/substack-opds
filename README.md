@@ -4,23 +4,17 @@ Mehrnutzer-Server, der Substack-Artikel (Neueste, Für dich, Lesezeichen, Bezahl
 
 **Hinweis:** Substack hat keine offizielle API. Die Endpunkte in `app/substack.py` sind inoffiziell und noch nicht gegen einen echten Account getestet. Brechen sie, sind alle Pfade dort an einer Stelle anpassbar.
 
-## Deployment auf dem VPS (Docker)
+## Deployment mit Dokploy
 
-Voraussetzung: Docker mit Compose-Plugin, ein A-Record deiner Domain auf den VPS, Ports 80 und 443 offen.
+1. In Dokploy eine Compose-Anwendung anlegen, Provider GitHub, Repo `substack-opds`, Branch `main`, Compose-Pfad `./docker-compose.yml`, Trigger *On Push*.
+2. Im Tab *Environment* setzen: `PUBLIC_URL=https://deine-domain.de`, `REGISTRATION_OPEN=1` und optional `INVITE_CODE`.
+3. Im Tab *Domains* die Domain für den Service `app` auf Port `8000` eintragen, HTTPS mit Let's Encrypt aktivieren.
+4. Deploy starten. Danach löst jeder Push auf `main` ein neues Deployment aus.
 
-```bash
-cd substack-opds
-cp .env.example .env
-sed -i 's/^DOMAIN=.*/DOMAIN=deine-domain.de/' .env   # deine echte Domain eintragen
-docker compose up -d --build
-docker compose logs -f app
-```
+HTTPS und Zertifikate übernimmt Traefik von Dokploy. Der Daten-Ordner liegt im Named Volume `appdata`.
 
-Danach `https://deine-domain.de` öffnen, Konto anlegen und die OPDS-Adresse kopieren.
-
-- Registrierung schließen: in `.env` `REGISTRATION_OPEN=0` setzen, dann `docker compose up -d`.
-- Mit Einladungscode: `INVITE_CODE=...` in `.env` setzen.
-- Backup: den Ordner `data/` sichern. `data/keys.json` enthält den Schlüssel für die gespeicherten Cookies. Ohne ihn müssen sich alle neu verbinden.
+- Registrierung schließen: `REGISTRATION_OPEN=0` setzen und neu deployen.
+- Backup: das Volume `appdata` sichern. `keys.json` darin enthält den Schlüssel für die gespeicherten Cookies. Ohne ihn müssen sich alle neu verbinden.
 
 ## Substack verbinden
 

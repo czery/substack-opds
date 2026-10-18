@@ -2,22 +2,18 @@ services:
   app:
     build: .
     restart: unless-stopped
-    env_file: .env
+    environment:
+      - PUBLIC_URL=${PUBLIC_URL:-}
+      - REGISTRATION_OPEN=${REGISTRATION_OPEN:-1}
+      - INVITE_CODE=${INVITE_CODE:-}
     volumes:
-      - ./data:/data
+      - appdata:/data
     expose:
       - "8000"
-  caddy:
-    image: caddy:2
-    restart: unless-stopped
-    env_file: .env
-    ports:
-      - "80:80"
-      - "443:443"
-    volumes:
-      - ./Caddyfile:/etc/caddy/Caddyfile:ro
-      - caddy_data:/data
-    depends_on:
-      - app
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/healthz')"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
 volumes:
-  caddy_data:
+  appdata:

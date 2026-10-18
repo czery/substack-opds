@@ -117,6 +117,44 @@ def main():
     assert cookie in seen["cookies"][-1], seen["cookies"]
     print("OPDS-Feeds ok (Inbox, Bezahlt, leer, Für dich mit Blättern), Cookie wurde gesendet")
 
+    # --- Kataloge im Dashboard konfigurieren ---
+    from app import store
+    defaults = {"latest": "Neueste", "for-you": "Für dich", "saved": "Lesezeichen", "paid": "Bezahlt"}
+    paths = {f["key"]: f["path"] for f in substack.DEFAULT_FEEDS}
+
+    def form(limits=None, enabled=None, delete=(), new=None):
+        d = {"enabled": list(enabled if enabled is not None else defaults), "delete": list(delete)}
+        for k, name in defaults.items():
+            d[f"name_{k}"], d[f"path_{k}"] = name, paths[k]
+            d[f"limit_{k}"] = str((limits or {}).get(k, 30))
+        if new:
+            d["new_name"], d["new_path"], d["new_limit"] = new
+        return d
+
+    n_entries = lambda t: t.count("urn:substack:")
+    r = c.post("/feeds", data=form(limits={"for-you": 1}, new=("Meine Liste", "https://substack.com/api/v1/reader/posts?inboxType=paid&limit=20", "5")))
+    assert "Kataloge gespeichert" in r.text, r.text[:800]
+    assert n_entries(c.get(f"/o/{opds}/feed/for-you").text) == 1  # Anzahl wirkt (Seite 2 wird nicht geholt)
+    root = c.get(f"/o/{opds}/").text
+    assert root.count("<entry>") == 5 and "Meine Liste" in root, root
+    custom = re.search(r"feed/(f[0-9a-f]{6})", root).group(1)
+    assert "42-ueber" in c.get(f"/o/{opds}/feed/{custom}").text
+    print("Kataloge konfigurierbar: Anzahl, neuer Katalog ok")
+
+    r = c.post("/feeds", data=form(new=("Böse", "https://evil.example/api/v1/x", "5")))
+    assert "Neuer Katalog nicht angelegt" in r.text
+    r = c.post("/feeds", data=form(new=("Böse", "/etc/passwd", "5")))
+    assert "Neuer Katalog nicht angelegt" in r.text
+    print("Fremde Hosts und ungültige Pfade abgelehnt")
+
+    r = c.post("/feeds", data=form(enabled=["latest", "for-you", "paid"]))
+    assert c.get(f"/o/{opds}/").text.count("<entry>") == 3
+    assert c.get(f"/o/{opds}/feed/saved").status_code == 404  # deaktiviert
+    c.post("/feeds/reset")
+    assert c.get(f"/o/{opds}/").text.count("<entry>") == 4
+    assert n_entries(c.get(f"/o/{opds}/feed/for-you").text) == 2  # wieder Standard (30 -> blättert)
+    print("Deaktivieren und Zurücksetzen ok")
+
     r = c.get(f"/o/{opds}/post/42-ueber-aerger-oel.epub")
     assert r.status_code == 200 and r.headers["content-type"] == "application/epub+zip"
     z = zipfile.ZipFile(io.BytesIO(r.content))

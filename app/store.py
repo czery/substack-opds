@@ -10,6 +10,8 @@ import time
 
 from cryptography.fernet import Fernet, InvalidToken
 
+from . import substack
+
 DATA = os.environ.get("DATA_DIR", "data")
 os.makedirs(DATA, mode=0o700, exist_ok=True)
 DB = os.path.join(DATA, "app.db")
@@ -62,7 +64,38 @@ def init():
             cookie_at INTEGER,
             created INTEGER NOT NULL)"""
     )
+    cols = [r["name"] for r in _run("PRAGMA table_info(users)")[0]]
+    if "feeds" not in cols:  # Migration für bestehende Datenbanken
+        _run("ALTER TABLE users ADD COLUMN feeds TEXT")
     os.makedirs(os.path.join(DATA, "cache"), exist_ok=True)
+
+
+def _default_feeds() -> list[dict]:
+    return [{**f, "limit": substack.DEFAULT_LIMIT, "enabled": True} for f in substack.DEFAULT_FEEDS]
+
+
+def get_feeds(uid: int) -> list[dict]:
+    """Kataloge der Nutzer:in. Ohne eigene Einstellung gelten die Standard-Kataloge."""
+    u = get_user(uid)
+    raw = u["feeds"] if u else None
+    if raw is None:
+        return _default_feeds()
+    try:
+        out = []
+        for f in json.loads(raw):
+            out.append({
+                "key": str(f["key"]), "name": str(f["name"]), "path": str(f["path"]),
+                "limit": max(1, min(substack.MAX_LIMIT, int(f.get("limit", substack.DEFAULT_LIMIT)))),
+                "enabled": bool(f.get("enabled", True)),
+            })
+        return out
+    except (ValueError, KeyError, TypeError):
+        return _default_feeds()
+
+
+def set_feeds(uid: int, feeds: list[dict] | None):
+    """None setzt auf die Standard-Kataloge zurück."""
+    _run("UPDATE users SET feeds=? WHERE id=?", (None if feeds is None else json.dumps(feeds), uid))
 
 
 def _hash(pw: str, salt: bytes | None = None) -> str:

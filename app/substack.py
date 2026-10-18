@@ -5,7 +5,9 @@ Alle Pfade stehen in FEEDS, LOGIN_URL und POST_URL, damit sie an einer Stelle
 korrigiert werden können (im Browser: DevTools > Network auf substack.com).
 Die Pfade sind noch nicht gegen einen echten Account getestet.
 """
-from urllib.parse import quote
+import re
+import time
+from urllib.parse import quote, urlsplit
 
 import httpx
 
@@ -17,17 +19,42 @@ UA = (
 
 LOGIN_URL = "/api/v1/login"
 POST_URL = "/api/v1/posts/by-id/{id}"
-MAX_PAGES = 8
+MAX_PAGES = 15  # höchstens so viele Abrufe pro Katalog
+TIME_BUDGET = 12.0  # Sekunden; danach wird mit dem bisher Gesammelten geantwortet
+MAX_LIMIT = 100
+DEFAULT_LIMIT = 30
 
-# key -> (Anzeigename, Pfad, Format)
-# Format "posts": {posts, publications, more, cursor}  (Abonnements-Inbox, Bezahlt, Gespeichert)
-# Format "feed":  {items, nextCursor}                   (Startseite "Für dich", gemischt mit Kommentaren)
-FEEDS = {
-    "latest": ("Neueste", "/api/v1/inbox/top?inboxType=inbox&surface=inbox_all&limit=20", "posts"),
-    "for-you": ("Für dich", "/api/v1/reader/feed?tab=for-you&type=base", "feed"),
-    "saved": ("Lesezeichen", "/api/v1/reader/posts?inboxType=saved&limit=20", "posts"),
-    "paid": ("Bezahlt", "/api/v1/reader/posts?inboxType=paid&limit=20", "posts"),
-}
+# Standard-Kataloge. Pro Nutzer:in im Dashboard änderbar.
+# Zwei Antwortformate werden automatisch erkannt:
+#   {posts, publications, more, cursor}  (Abonnements-Inbox, Bezahlt, Gespeichert)
+#   {items, nextCursor}                   (Startseite "Für dich", gemischt mit Kommentaren)
+DEFAULT_FEEDS = [
+    {"key": "latest", "name": "Neueste",
+     "path": "/api/v1/inbox/top?inboxType=inbox&surface=inbox_all&limit=20"},
+    {"key": "for-you", "name": "Für dich", "path": "/api/v1/reader/feed?tab=for-you&type=base"},
+    {"key": "saved", "name": "Lesezeichen", "path": "/api/v1/reader/posts?inboxType=saved&limit=20"},
+    {"key": "paid", "name": "Bezahlt", "path": "/api/v1/reader/posts?inboxType=paid&limit=20"},
+]
+CHECK_PATH = "/api/v1/reader/posts?inboxType=saved&limit=20"
+
+
+def parse_feed_path(raw: str) -> str | None:
+    """Akzeptiert einen /api/…-Pfad oder eine https://substack.com/api/…-URL.
+
+    Gibt den Pfad (mit Query) zurück oder None. Fremde Hosts sind nicht erlaubt,
+    der Server ruft immer nur substack.com auf.
+    """
+    raw = (raw or "").strip()
+    if raw.startswith(("http://", "https://")):
+        u = urlsplit(raw)
+        if u.scheme != "https" or (u.hostname or "").lower() != "substack.com":
+            return None
+        raw = u.path + ("?" + u.query if u.query else "")
+    raw = raw.split("#")[0]
+    if (not raw.startswith("/api/") or len(raw) > 500 or ".." in raw
+            or "//" in raw.split("?")[0] or re.search(r"[\s\x00-\x1f]", raw)):
+        return None
+    return raw
 
 
 COOKIE_DOMAIN = "substack.com"
@@ -116,26 +143,33 @@ class SubstackClient:
             self.on_cookie_update(new)
         await self.http.aclose()
 
-    async def feed(self, key: str, limit: int = 30) -> list[dict]:
-        _, path, fmt = FEEDS[key]
+    async def feed(self, path: str, limit: int = DEFAULT_LIMIT) -> list[dict]:
+        """Holt Artikel von einem Substack-Pfad und blättert per cursor, bis `limit` erreicht ist."""
         posts: list[dict] = []
         seen: set = set()
         cursor = None
+        sep = "&" if "?" in path else "?"
+        deadline = time.monotonic() + TIME_BUDGET
         for _ in range(MAX_PAGES):
-            url = BASE + path + (f"&cursor={quote(cursor, safe='')}" if cursor else "")
+            url = BASE + path + (f"{sep}cursor={quote(cursor, safe='')}" if cursor else "")
             r = await self.http.get(url)
             r.raise_for_status()
             d = r.json()
-            if fmt == "posts":
-                pubs = {x.get("id"): x for x in d.get("publications") or []}
-                batch = [normalize(p, pubs.get(p.get("publication_id"))) for p in d.get("posts") or []]
+            if not isinstance(d, dict):
+                break
+            if isinstance(d.get("posts"), list):
+                pubs = {x.get("id"): x for x in d.get("publications") or [] if isinstance(x, dict)}
+                batch = [
+                    normalize(p, pubs.get(p.get("publication_id")))
+                    for p in d["posts"] if isinstance(p, dict)
+                ]
                 c = d.get("cursor")
                 cursor = c if d.get("more") and isinstance(c, str) else None
             else:
                 batch = [
                     normalize(i.get("post"), i.get("publication"))
                     for i in d.get("items") or []
-                    if i.get("type") == "post"
+                    if isinstance(i, dict) and i.get("type") == "post"
                 ]
                 nc = d.get("nextCursor")
                 cursor = nc if isinstance(nc, str) else None
@@ -143,7 +177,7 @@ class SubstackClient:
                 if n and n["id"] not in seen:
                     seen.add(n["id"])
                     posts.append(n)
-            if len(posts) >= limit or not cursor:
+            if len(posts) >= limit or not cursor or time.monotonic() > deadline:
                 break
         return posts[:limit]
 
